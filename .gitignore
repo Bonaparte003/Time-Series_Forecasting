@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.env
+db.sqlite3
+data/processed/
+data/outputs/
+*.parquet
+.DS_Store
+.idea/
+.vscode/
+dataverse_files/
+dataverse_files*/   
