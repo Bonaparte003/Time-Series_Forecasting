@@ -35,6 +35,12 @@ Chunked read, Italy-only (`country_code=39`), internet column, optimized dtypes,
 python manage.py ingest_raw
 ```
 
+Per-file and per-chunk progress:
+
+```bash
+python manage.py ingest_raw --verbose
+```
+
 Quick test (first 2 days only):
 
 ```bash

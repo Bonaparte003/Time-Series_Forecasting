@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -68,10 +69,14 @@ def ingest_files(
     files: list[Path],
     daily_dir: Path,
     max_files: int | None = None,
+    log: Callable[[str], None] | None = None,
 ) -> dict:
     """
     Stream raw files into one Parquet file per day under daily_dir.
     Returns stats including memory before/after dtype optimization on a sample.
+
+    If ``log`` is provided (e.g. from ``ingest_raw --verbose``), progress is
+    written per file and per chunk.
     """
     if max_files:
         files = files[:max_files]
@@ -88,13 +93,38 @@ def ingest_files(
 
     daily_dir.mkdir(parents=True, exist_ok=True)
     total_rows = 0
+    n_files = len(files)
 
-    for path in files:
+    if log:
+        log(
+            f"Chunk size: {settings.CHUNK_SIZE:,} rows | "
+            f"country_code={settings.COUNTRY_ITALY} | "
+            f"columns={USECOLS} (internet=col {settings.INTERNET_COL})"
+        )
+        log(
+            f"Memory sample ({sample_path.name}, 100k rows): "
+            f"{mem_before:.2f} MB → {mem_after:.2f} MB after dtype optimization"
+        )
+        log(f"Writing daily Parquet shards to {daily_dir}")
+
+    for file_idx, path in enumerate(files, start=1):
+        if log:
+            log(f"[{file_idx}/{n_files}] Reading {path.name} ...")
+
         parts: list[pd.DataFrame] = []
-        for chunk in iter_file_chunks(path):
+        chunk_rows = 0
+        for chunk_num, chunk in enumerate(iter_file_chunks(path), start=1):
             parts.append(chunk)
+            chunk_rows += len(chunk)
+            if log:
+                log(f"  chunk {chunk_num}: {len(chunk):,} rows (Italy, after filter)")
+
         if not parts:
+            if log:
+                log(f"  skipped (no Italy rows in {path.name})")
             continue
+
+        raw_rows = chunk_rows
         day_df = pd.concat(parts, ignore_index=True)
         day_df["timestamp"] = pd.to_datetime(day_df["time_ms"], unit="ms", utc=True)
         day_df = day_df.drop(columns=["time_ms"])
@@ -103,7 +133,14 @@ def ingest_files(
         ].sum()
         out_file = daily_dir / f"{path.stem}.parquet"
         day_df.to_parquet(out_file, index=False)
-        total_rows += len(day_df)
+        n_out = len(day_df)
+        total_rows += n_out
+        if log:
+            log(
+                f"  aggregated {raw_rows:,} filtered rows → {n_out:,} "
+                f"(square×time) | {day_df['square_id'].nunique():,} squares"
+            )
+            log(f"  wrote {out_file.name} ({out_file.stat().st_size / (1024**2):.2f} MB)")
         del parts, day_df
         gc.collect()
 

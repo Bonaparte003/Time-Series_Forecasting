@@ -16,6 +16,12 @@ class Command(BaseCommand):
             help="Limit raw files during ingest (testing).",
         )
         parser.add_argument(
+            "--verbose",
+            "-v",
+            action="store_true",
+            help="Verbose output during ingest_raw.",
+        )
+        parser.add_argument(
             "--skip-experiments",
             action="store_true",
             help="Skip hyperparameter tuning.",
@@ -35,6 +41,8 @@ class Command(BaseCommand):
         ingest_kwargs = {}
         if options["max_files"]:
             ingest_kwargs["max_files"] = options["max_files"]
+        if options["verbose"]:
+            ingest_kwargs["verbose"] = True
 
         call_command("ingest_raw", **ingest_kwargs)
         call_command("build_series")

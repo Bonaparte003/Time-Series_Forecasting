@@ -17,6 +17,12 @@ class Command(BaseCommand):
             default=None,
             help="Process only the first N files (for quick tests).",
         )
+        parser.add_argument(
+            "--verbose",
+            "-v",
+            action="store_true",
+            help="Print per-file and per-chunk progress while ingesting.",
+        )
 
     def handle(self, *args, **options):
         from django.conf import settings
@@ -26,7 +32,13 @@ class Command(BaseCommand):
         daily_dir = settings.PROCESSED_DIR / "daily"
 
         self.stdout.write(f"Found {len(files)} raw files.")
-        stats = ingest_files(files, daily_dir, max_files=options["max_files"])
+        log = self.stdout.write if options["verbose"] else None
+        stats = ingest_files(
+            files,
+            daily_dir,
+            max_files=options["max_files"],
+            log=log,
+        )
 
         run = IngestionRun.objects.create(
             files_processed=stats["files_processed"],
