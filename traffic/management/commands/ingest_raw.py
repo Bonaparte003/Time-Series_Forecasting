@@ -19,9 +19,11 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--verbose",
-            "-v",
             action="store_true",
-            help="Print per-file and per-chunk progress while ingesting.",
+            help=(
+                "Print per-file and per-chunk progress while ingesting. "
+                "Also enabled when Django verbosity is 2+ (e.g. manage.py ingest_raw -v 2)."
+            ),
         )
 
     def handle(self, *args, **options):
@@ -32,7 +34,8 @@ class Command(BaseCommand):
         daily_dir = settings.PROCESSED_DIR / "daily"
 
         self.stdout.write(f"Found {len(files)} raw files.")
-        log = self.stdout.write if options["verbose"] else None
+        verbose = options["verbose"] or options.get("verbosity", 1) >= 2
+        log = self.stdout.write if verbose else None
         stats = ingest_files(
             files,
             daily_dir,

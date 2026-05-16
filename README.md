@@ -39,6 +39,8 @@ Per-file and per-chunk progress:
 
 ```bash
 python manage.py ingest_raw --verbose
+# or Django verbosity level 2+ (do not use bare `-v`; that flag is reserved):
+python manage.py ingest_raw -v 2
 ```
 
 Quick test (first 2 days only):

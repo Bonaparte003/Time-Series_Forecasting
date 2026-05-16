@@ -17,9 +17,8 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--verbose",
-            "-v",
             action="store_true",
-            help="Verbose output during ingest_raw.",
+            help="Verbose output during ingest_raw (or use -v 2 on this command).",
         )
         parser.add_argument(
             "--skip-experiments",
@@ -43,6 +42,8 @@ class Command(BaseCommand):
             ingest_kwargs["max_files"] = options["max_files"]
         if options["verbose"]:
             ingest_kwargs["verbose"] = True
+        if options.get("verbosity", 1) >= 2:
+            ingest_kwargs.setdefault("verbosity", options["verbosity"])
 
         call_command("ingest_raw", **ingest_kwargs)
         call_command("build_series")
