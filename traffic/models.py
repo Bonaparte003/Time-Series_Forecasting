@@ -1,6 +1,10 @@
 from django.db import models
 
-
+"""
+IngestionRun tracks each time we ingest data from the CSV files into the database.
+This allows us to monitor the performance and resource usage of the ingestion process over time,
+and to keep a history of when data was ingested and how much data was processed.
+"""
 class IngestionRun(models.Model):
     started_at = models.DateTimeField(auto_now_add=True)
     files_processed = models.PositiveIntegerField(default=0)
@@ -15,7 +19,11 @@ class IngestionRun(models.Model):
     def __str__(self):
         return f"IngestionRun {self.pk} ({self.started_at:%Y-%m-%d %H:%M})"
 
-
+"""
+ForecastRun tracks the results of running a forecasting model on a specific square.
+This allows us to compare the performance of different models on the same square, and to track how
+model performance changes over time as we make improvements or changes to the models.
+"""
 class ForecastRun(models.Model):
     square_id = models.PositiveIntegerField()
     model_name = models.CharField(max_length=32)
@@ -34,7 +42,10 @@ class ForecastRun(models.Model):
     def __str__(self):
         return f"{self.model_name} @ square {self.square_id}"
 
-
+"""
+ExperimentRun tracks the results of running a specific experiment, which may involve multiple phases and models.
+This allows us to keep a detailed history of our experiments, including the parameters used, the performance
+"""
 class ExperimentRun(models.Model):
     experiment_id = models.CharField(max_length=64, unique=True)
     phase = models.PositiveSmallIntegerField()
