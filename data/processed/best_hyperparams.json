@@ -1,0 +1,52 @@
+{
+  "ets": {
+    "params": {
+      "seasonal_periods": 144,
+      "trend": "add",
+      "seasonal": "add",
+      "damped_trend": true
+    },
+    "val_mae": 314.6854531870751,
+    "val_rmse": 477.51860278195,
+    "val_mape": 23.484799278793453,
+    "selected_from_experiment": "P2-ets-007",
+    "phase": 2
+  },
+  "lstm": {
+    "params": {
+      "seq_len": 72,
+      "epochs": 10,
+      "batch_size": 64,
+      "lr": 0.001,
+      "hidden": 64,
+      "layers": 2,
+      "early_stopping": true,
+      "patience": 3,
+      "holdout_intervals": 144,
+      "min_delta": 1e-05
+    },
+    "val_mae": 1175.3040935860515,
+    "val_rmse": 1518.771521083454,
+    "val_mape": 143.60139584351197,
+    "selected_from_experiment": "P2-lstm-012",
+    "phase": 2
+  },
+  "tcn": {
+    "params": {
+      "seq_len": 144,
+      "epochs": 10,
+      "batch_size": 64,
+      "lr": 0.001,
+      "channels": 32,
+      "early_stopping": true,
+      "patience": 3,
+      "holdout_intervals": 144,
+      "min_delta": 1e-05
+    },
+    "val_mae": 1263.183793292779,
+    "val_rmse": 1496.3038054505128,
+    "val_mape": 198.8750672297942,
+    "selected_from_experiment": "P2-tcn-036",
+    "phase": 2
+  }
+}

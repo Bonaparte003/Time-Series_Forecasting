@@ -78,8 +78,8 @@ def evaluate_loader(
         pred = _align_target_shape(model(xb), yb)
         losses.append(float(loss_fn(pred, yb).item()))
         diff = pred - yb
-        abs_errors.extend(torch.abs(diff).detach().cpu().tolist())
-        sq_errors.extend((diff ** 2).detach().cpu().tolist())
+        abs_errors.extend(torch.abs(diff).detach().cpu().reshape(-1).tolist())
+        sq_errors.extend((diff ** 2).detach().cpu().reshape(-1).tolist())
 
     if not losses:
         return float("nan"), float("nan"), float("nan")

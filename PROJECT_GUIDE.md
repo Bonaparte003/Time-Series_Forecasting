@@ -1,207 +1,303 @@
-# Project Guide — What This Codebase Does
+# Project Guide — Milan Traffic Forecasting Pipeline
 
-## Big picture
+End-to-end guide for the **Formative 1** codebase: what each component does, how data flows, and how outputs map to the assignment PDF.
 
-You are analyzing **mobile internet traffic in Milan** (TIM dataset, ~10,000 grid squares, 10-minute intervals, ~2 months). The work is split into three assignment tasks, implemented as a **Django pipeline** (not a traditional CRUD web app). Django gives you:
+**See also:** [README.md](README.md) (quick start + results gallery)
 
-- A standard project layout (`time_series_forecasting` + app `traffic`)
-- **Management commands** to run each stage from the terminal
-- A small **dashboard** (`runserver`) to browse generated plots
+---
 
-Heavy work is done by **pandas**, **statsmodels**, **PyTorch**, and **matplotlib** inside `traffic/services/`.
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph task1 [Task 1]
+    RAW[dataverse_files/*.txt]
+    ING[ingest_raw]
+    PQ[daily Parquet]
+    RAW --> ING --> PQ
+  end
+  subgraph prep [Prepare]
+    BS[build_series]
+    SER[series/square_*.parquet]
+    PQ --> BS --> SER
+  end
+  subgraph task2 [Task 2]
+    EDA[run_eda]
+    FIGS[outputs/eda]
+    SER --> EDA --> FIGS
+  end
+  subgraph tune [Tuning]
+    EXP[run_experiments]
+    VAL[Val week Dec 9-15]
+    BEST[best_hyperparams.json]
+    SER --> EXP --> VAL --> BEST
+  end
+  subgraph task3 [Task 3]
+    FC[run_forecast]
+    TEST[Test week Dec 16-22]
+    FAIL[run_failure_analysis]
+    SER --> FC --> TEST
+    BEST --> FC
+    FC --> FAIL
+  end
+```
 
 ---
 
 ## Repository layout
 
 ```
-time_series_forecasting/     ← Django project (settings, URLs)
-traffic/                     ← Django app
-  models.py                  ← SQLite records (ingest + forecast metrics)
-  views.py                   ← Dashboard + image gallery
+time_series_forecasting/       Django project (settings, URLs, splits, grids)
+traffic/
+  models.py                    SQLite: ExperimentRun, ForecastRun
+  views.py                     Web dashboard + /guide/
   services/
-    loader.py                ← Task 1: read raw .txt in chunks
-    etl.py                   ← Build 10-min time series per square
-    eda.py                   ← Task 2: plots
-    forecast/                ← Task 3: ARIMA, LSTM, TCN
-    forecast_runner.py       ← Runs all models, saves plots & metrics
-  management/commands/       ← CLI entry points
-data/
-  processed/                 ← Parquet + series (after ingest)
-  outputs/                   ← PNG figures + CSV metrics
-dataverse_files*/            ← Your raw TIM text files (7 folders)
+    loader.py                  Chunked raw ingest (Task 1)
+    etl.py                     10-min series per square
+    eda.py                     Task 2 plots
+    experiments.py             Phase 1 + 2 tuning
+    forecast_runner.py           Task 3 orchestration
+    failure_analysis.py          Worst windows + residuals
+    forecast/
+      ets.py                   Holt–Winters
+      lstm.py                  LSTM + walk-forward predict
+      tcn.py                   TCN + walk-forward predict
+      training.py              Early stopping, epoch metrics
+  management/commands/         CLI entry points
+docs/images/                   Committed figures (mirrors key outputs)
+data/processed/                Generated at runtime
+data/outputs/                  Generated at runtime (gitignored)
 ```
 
 ---
 
-## Data flow (run commands in this order)
+## Time splits (critical for the report)
 
-### 1. `ingest_raw` — Task 1 (memory-efficient load)
+| Split | Dates | Used for |
+|-------|-------|----------|
+| **Train (tuning)** | Before 2013-12-09 | `run_experiments` fit |
+| **Validation** | 2013-12-09 → 2013-12-15 | Hyperparameter selection only |
+| **Train (final)** | Before 2013-12-16 | `run_forecast` fit (includes val week) |
+| **Test** | 2013-12-16 → 2013-12-22 | Final MAE / MAPE / RMSE & plots |
 
-**Input:** Tab-separated daily files  
-`sms-call-internet-mi-YYYY-MM-DD.txt` in `dataverse_files*`
+The test week is **never** used during `run_experiments`.
 
-**What happens:**
-- Reads files in **chunks** (500k rows) so RAM stays bounded
-- Keeps only **Italy** (`country_code == 39`) and column **7** (internet traffic)
-- Uses compact dtypes (`float32`, `uint16`, …)
-- Writes one **Parquet file per day** under `data/processed/daily/`
-- Logs **memory before/after** on a sample → `data/processed/ingest_report.json`
+---
 
-### 2. `build_series` — prepare time series
+## Commands reference
 
-**What happens:**
-- Loads all daily Parquet shards
-- Finds the square with **highest total traffic** over the period
-- Builds regular **10-minute** series for:
-  - that top square
-  - fixed squares **4159** and **4556**
-- Saves `data/processed/series/square_<id>.parquet`
-- Writes `data/processed/metadata.json` with IDs to use later
+### `ingest_raw` — Task 1
 
-### 3. `run_eda` — Task 2 (exploratory plots)
-
-**Outputs in `data/outputs/eda/`:**
-- Traffic distribution across squares (PDF/histogram)
-- First two weeks for the three target areas
-- Stationarity (rolling stats + ADF text file)
-- Seasonal decomposition, ACF/PACF (reference square)
-- Spatial heatmap (100×100 grid)
-- Sample outlier CSV
-
-### 4. `run_experiments` — hyperparameter tuning (rubric: experimentation)
-
-**Splits:**
-- **Train:** before 2013-12-09
-- **Validation:** 2013-12-09 → 2013-12-15 (tuning only)
-- **Test:** 2013-12-16 → 2013-12-22 (never used until `run_forecast`)
-
-**Phases:**
-1. **Phase 1 — baseline:** default parameters, record validation MAE.
-2. **Phase 2 — grid search:** combinations from `EXPERIMENT_GRIDS` in settings.
-
-**Outputs:**
-- `data/outputs/experiments/experiments_log.csv` — every run with params + metrics + reasoning
-- `data/outputs/experiments/experiment_journal.md` — summary for your report
-- `data/processed/best_hyperparams.json` — best validation MAE per model
-- SQLite `ExperimentRun` rows
+- Reads tab-separated `sms-call-internet-mi-YYYY-MM-DD.txt` in chunks (500k rows).
+- Filters `country_code == 39` (Italy), keeps internet column (field 7; Barlacchi field-order correction).
+- Compact dtypes → one Parquet per day under `data/processed/daily/`.
+- Writes `data/processed/ingest_report.json` (memory before/after on a sample).
 
 ```bash
-python manage.py run_experiments          # full grid (slow)
-python manage.py run_experiments --quick  # smaller grid for testing
+python manage.py ingest_raw --verbose
+python manage.py ingest_raw --max-files 2   # smoke test
 ```
 
-### 5. `run_forecast` — Task 3 (final evaluation)
+### `build_series`
 
-**Train/test split:**
-- **Train:** all timestamps **before** 2013-12-16 (includes validation week)
-- **Test:** week **2013-12-16 → 2013-12-22** only
+- Aggregates to regular **10-minute** intervals.
+- Identifies **top-traffic** square (here: **5161**) + fixed **4159**, **4556**.
+- Saves `data/processed/series/square_<id>.parquet`, `metadata.json`.
 
-Uses **`best_hyperparams.json`** unless you pass `--no-best-params`.
+### `run_eda` — Task 2
 
-**Models:**
+| Output | Assignment item |
+|--------|-----------------|
+| `01_traffic_pdf.png` | PDF over 10k areas |
+| `02_three_areas_two_weeks.png` | 3 areas, first 2 weeks |
+| `03_stationarity_square_*.png` + `03_adf_*.txt` | Stationarity + ADF |
+| `04_decomposition_square_5161.png` | Trend / seasonal / residual |
+| `05_acf_pacf_square_5161.png` | ACF / PACF |
+| `06_spatial_heatmap.png` | Spatial analysis |
+| `07_outlier_sample.csv` | Anomalies / outliers |
 
-| Model | Type | Training |
-|-------|------|----------|
-| `arima` | Statistical | `pmdarima.auto_arima`, seasonal period 144 (1 day) |
-| `lstm` | Neural | 15 epochs, sequence length 144, MinMax scaling on train |
-| `tcn` | Neural | Same setup, temporal convolution network |
+Gallery copies: `docs/images/eda/`
 
-**Neural training (LSTM & TCN):**
-- Each **epoch**, the model sees all training sequences once
-- **Terminal prints:** `Epoch 1/15  train_loss=0.00xxxx`
-- **Saved artifacts** per model × square:
-  - `data/outputs/forecast/training/training_lstm_square_4159.png` — loss curve
-  - `.../training_lstm_square_4159.json` — numeric loss per epoch
+### `run_experiments` — Hyperparameter tuning
 
-**Forecast plots:**  
-`data/outputs/forecast/arima_square_<id>.png` (9 total for 3 models × 3 squares)
+**39 runs** on tuning square **5161**:
 
-**Metrics:** MAE, MAPE, RMSE in CSV + SQLite `ForecastRun` table
+| Phase | Models | Runs |
+|-------|--------|-----:|
+| 1 — baseline | ETS, LSTM, TCN | 3 |
+| 2 — grid | ETS (4), LSTM (16), TCN (16) | 36 |
 
-**Timing / hardware (for report tables):**
-- `data/outputs/forecast/timing_table.csv`
-- `data/outputs/forecast/timing_report.json` (includes `platform`, Python version, how times were measured)
+**Outputs**
 
-**Predictions (for failure analysis):**
-- `data/outputs/forecast/predictions/*.csv`
+- `data/outputs/experiments/experiments_log.csv` — params, val MAE/MAPE/RMSE, reasoning
+- `data/outputs/experiments/experiment_journal.md` — summary for your report
+- `data/processed/best_hyperparams.json` — winners per model
 
-### 6. `run_failure_analysis` — Task 3 failure section
+**Selected configs (validation MAE on 5161)**
 
-Finds the worst ~6-hour sliding window on the test week per model/square.
+| Model | Val MAE | Key params |
+|-------|--------:|------------|
+| ETS | 314.7 | `trend=add`, `damped_trend=true`, `seasonal_periods=144` |
+| LSTM | 1175.3 | `seq_len=72`, `epochs=10`, `hidden=64`, early stopping |
+| TCN | 1263.2 | `seq_len=144`, `epochs=10`, `channels=32`, early stopping |
 
-**Outputs in `data/outputs/failure_analysis/`:**
-- `residuals_*_square_*.png` — full test week + residuals
-- `worst_window_*_square_*.png` — zoom on worst interval
-- `failure_report.json`, `failure_analysis.md` (draft text for your PDF)
+```bash
+python manage.py run_experiments --verbose
+python manage.py run_experiments --quick    # smaller grid
+```
+
+### `run_forecast` — Task 3 evaluation
+
+- Trains on all data **before 2013-12-16** with `best_hyperparams.json`.
+- Predicts test week **2013-12-16 → 2013-12-22** (1,008 steps × 10 min).
+
+**Forecasting strategy**
+
+| Model | Multi-step approach |
+|-------|---------------------|
+| **ETS** | Single `forecast(1008)` with daily seasonality (period 144) |
+| **LSTM / TCN** | **Recursive** walk-forward: each prediction fed into the next step |
+
+**Outputs**
+
+- `data/outputs/forecast/{ets,lstm,tcn}_square_<id>.png` — **9 plots**
+- `data/outputs/forecast/metrics_square_<id>.csv` — **3 tables**
+- `data/outputs/forecast/timing_table.csv` + `hardware_environment.json`
+- `data/outputs/forecast/training/` — loss curves (train/val MSE, val MAE/RMSE per epoch)
+
+Gallery: `docs/images/forecast/`, `docs/images/training/`
+
+### `run_failure_analysis`
+
+- Sliding 6-hour windows on test week; worst interval per model × square.
+- `failure_analysis.md` — draft text for PDF failure section.
+- Residual + worst-window PNGs.
+
+Gallery: `docs/images/failure/`
+
+---
+
+## Models (for Task 3 write-up)
+
+### ETS (Holt–Winters)
+
+- **Library:** `statsmodels.tsa.holtwinters.ExponentialSmoothing`
+- **Seasonality:** additive, period **144** (24 h at 10-min steps)
+- **Tuning:** `trend` ∈ {None, add}, `damped_trend` ∈ {false, true}
+
+### LSTM
+
+- **Input:** last `seq_len` scaled values (MinMax on train)
+- **Architecture:** 2-layer LSTM → linear head
+- **Training:** Adam, MSE; **early stopping** on last 144 sequences of train; restore best weights
+- **Inference:** recursive 1,008-step forecast on test week
+
+### TCN
+
+- Same preprocessing and early stopping as LSTM.
+- Dilated causal conv blocks → linear head.
+- Same recursive inference.
+
+**Report tip:** Assignment wording mentions one-step-ahead; this project evaluates **full-week** forecasts. State that explicitly and discuss error compounding for NNs vs ETS’s direct seasonal forecast.
+
+---
+
+## Test-week results (reference)
+
+Use these in your PDF tables (from `metrics_summary.json` / `timing_table.csv`).
+
+<details>
+<summary>Square 5161 — MAE / MAPE / RMSE</summary>
+
+| Model | MAE | MAPE % | RMSE |
+|-------|----:|-------:|-----:|
+| ETS | 310.1 | 26.1 | 470.0 |
+| LSTM | 1472.3 | 459.8 | 1678.0 |
+| TCN | 4749.3 | 858.8 | 5037.2 |
+
+</details>
+
+<details>
+<summary>Square 4159</summary>
+
+| Model | MAE | MAPE % | RMSE |
+|-------|----:|-------:|-----:|
+| ETS | 64.8 | 28.1 | 85.7 |
+| TCN | 101.0 | 39.3 | 132.6 |
+| LSTM | 101.6 | 46.5 | 122.8 |
+
+</details>
+
+<details>
+<summary>Square 4556</summary>
+
+| Model | MAE | MAPE % | RMSE |
+|-------|----:|-------:|-----:|
+| LSTM | 135.2 | 42.2 | 169.4 |
+| ETS | 176.1 | 48.6 | 196.0 |
+| TCN | 198.9 | 63.5 | 236.2 |
+
+</details>
+
+**Best model:** area-dependent — justify with Task 2 (daily seasonality, spatial heterogeneity) and note tuning on 5161 only.
+
+---
+
+## Assignment → deliverable map
+
+| PDF section | Source in repo |
+|-------------|----------------|
+| Task 1 memory | `ingest_report.json` + your discussion |
+| Task 2 figures | `data/outputs/eda/` · `docs/images/eda/` |
+| Task 3 design | This guide + `traffic/services/forecast/` |
+| Task 3 plots (×9) | `data/outputs/forecast/` · `docs/images/forecast/` |
+| Task 3 tables (×3) | `metrics_square_*.csv` |
+| Timing + hardware | `timing_table.csv`, `hardware_environment.json` |
+| Experimentation | `experiments_log.csv`, `experiment_journal.md` |
+| Failure analysis | `failure_analysis.md`, `data/outputs/failure_analysis/` |
+| Reproducibility | README + `requirements.txt` + optional `series/` subset |
 
 ---
 
 ## Viewing results
 
-### Terminal
-During `run_forecast`, watch epoch lines for LSTM/TCN.
-
-### Files
-Open PNG/CSV under `data/outputs/`.
-
-### Browser
 ```bash
 python manage.py runserver
 ```
-- http://127.0.0.1:8000/ — gallery of all figures  
-- http://127.0.0.1:8000/guide/ — this guide  
+
+| URL | Content |
+|-----|---------|
+| http://127.0.0.1:8000/ | Dashboard — all generated PNGs |
+| http://127.0.0.1:8000/guide/ | Rendered copy of this guide |
 
 ---
 
-## What is an “epoch”?
+## Configuration (`time_series_forecasting/settings.py`)
 
-One **epoch** = one full pass through the **training sequences** (sliding windows of 144 past values → next value). Loss should generally **decrease** as the network learns patterns. If loss flatlines or jumps, you may need more epochs, different learning rate, or more data (run full ingest, not `--max-files 2`).
-
-ARIMA has no epochs; it fits statistical parameters in one search (`auto_arima`).
-
----
-
-## Verbose progress
-
-Any step can print detailed progress:
-
-```bash
-python manage.py ingest_raw --verbose
-python manage.py build_series --verbose
-python manage.py run_pipeline --verbose
-# or: python manage.py <command> -v 2   (do not use bare -v)
-```
-
-`run_experiments` and `run_forecast` are verbose **by default**; pass `--quiet` to suppress.
+| Setting | Value |
+|---------|-------|
+| `SEASONAL_PERIOD` / `SEQUENCE_LENGTH` | 144 |
+| `VAL_START` / `VAL_END` | 2013-12-09 / 2013-12-15 |
+| `TEST_START` / `TEST_END` | 2013-12-16 / 2013-12-22 |
+| `NN_TRAIN_HOLDOUT_INTERVALS` | 144 (early-stopping val split) |
+| `FORECAST_MODELS` | `ets`, `lstm`, `tcn` |
 
 ---
 
-## Quick test vs full run
+## Rubric checklist (code & repo)
 
-```bash
-python manage.py ingest_raw --max-files 2
-python manage.py build_series
-python manage.py run_eda
-python manage.py run_forecast
-```
-
-Full dataset ingest takes much longer (~5 GB raw).
-
----
-
-## Assignment deliverables mapping
-
-| Deliverable | Where it comes from |
-|-------------|---------------------|
-| Task 1 memory report | `ingest_report.json`, your PDF discussion |
-| Task 2 figures | `data/outputs/eda/` |
-| Task 3 plots + tables | `data/outputs/forecast/`, `metrics_square_*.csv` |
-| Training time stats | printed + `metrics_summary.json` + `ForecastRun` |
-| Code + README | repo root |
+- [x] Chunked ingest + memory report  
+- [x] Full EDA artifact set  
+- [x] 3 models (1 statistical + 2 neural)  
+- [x] 9 forecast plots + 3 metric tables + timing  
+- [x] Grid search + experiment log + journal  
+- [x] Failure analysis artifacts  
+- [x] README with embedded results (`docs/images/`)  
+- [ ] PDF report + video (your deliverables)  
+- [ ] Optional: commit `data/processed/series/` for one-command reproduce  
 
 ---
 
-## AI / integrity note
+## AI / integrity
 
-Document tool use in your PDF. Be ready to explain ingest chunking, why Dec 16–22 is held out, and how each model uses history length 144.
+Document AI tool use in the PDF. Be prepared to explain: chunk ingest, date splits, why ETS outperforms NNs on square 5161, and early stopping on a train holdout (not the validation week).

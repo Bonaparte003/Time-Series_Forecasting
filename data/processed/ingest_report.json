@@ -1,0 +1,8 @@
+{
+  "files_processed": 62,
+  "rows_written": 89243075,
+  "memory_before_mb": 3.0518836975097656,
+  "memory_after_mb": 1.5260047912597656,
+  "sample_path": "/Users/avellin/Desktop/Campus/Time-Series_Forecasting/dataverse_files/sms-call-internet-mi-2013-11-01.txt",
+  "daily_dir": "/Users/avellin/Desktop/Campus/Time-Series_Forecasting/data/processed/daily"
+}

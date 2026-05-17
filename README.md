@@ -1,165 +1,195 @@
 # Milan Mobile Network Traffic — Time Series Forecasting
 
-Django project **`time_series_forecasting`** for **Formative 1** (Comparative Time Series Analysis and Forecasting of Mobile Network Traffic), using the TIM Milan telecommunications dataset.
+**Formative 1** · Comparative time series analysis and forecasting on the [TIM Milan](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/EGZHFV) dataset (Barlacchi et al., *Scientific Data* 2015).
 
-| Name | Module |
-|------|--------|
-| Django project | `time_series_forecasting` |
-| Django app | `traffic` |
+| | |
+|---|---|
+| **Django project** | `time_series_forecasting` |
+| **App** | `traffic` |
+| **Models** | **ETS** (Holt–Winters) · **LSTM** · **TCN** |
+| **Target areas** | Square **5161** (top traffic) · **4159** · **4556** |
+| **Test week** | 2013-12-16 → 2013-12-22 (held out until final forecast) |
 
-## Requirements
+[pipeline](#quick-start) · [results](#results-gallery) · [metrics](#test-week-metrics-dec-1622) · [guide](PROJECT_GUIDE.md)
 
-- Python 3.10–3.12 (PyTorch wheels may be unavailable on 3.14+)
-- ~8 GB RAM recommended for full ingest (dataset ~5 GB raw)
-- macOS, Linux, or Windows
-- `numpy>=1.26,<2` (required for PyTorch compatibility; pinned in `requirements.txt`)
+---
 
-## Setup
+## Quick start
 
 ```bash
 cd Time-Series_Forecasting
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python manage.py migrate
 ```
 
-Place raw `.txt` files in the repo root under `dataverse_files/`, `dataverse_files-2/`, … `dataverse_files-7/` (already present if you cloned with data).
-
-## Pipeline (run in order)
-
-### 1. Task 1 — Ingest raw data
-
-Chunked read, Italy-only (`country_code=39`), internet column, optimized dtypes, daily Parquet shards:
+Place raw files in `dataverse_files/`, `dataverse_files-2/`, … `dataverse_files-7/`, then:
 
 ```bash
-python manage.py ingest_raw
-```
-
-Step-by-step progress on any pipeline command:
-
-```bash
-python manage.py ingest_raw --verbose
-python manage.py build_series --verbose
-python manage.py run_eda --verbose
+# Full pipeline (ingest → series → EDA → experiments → forecast → failure analysis)
 python manage.py run_pipeline --verbose
-# or Django verbosity 2+ (use `-v 2`, not bare `-v`):
-python manage.py build_series -v 2
+
+# Or step by step — see PROJECT_GUIDE.md
 ```
 
-`run_experiments` and `run_forecast` log by default; use `--quiet` to suppress.
+**Requirements:** Python 3.10–3.12 · ~8 GB RAM for full ingest · `numpy>=1.26,<2` (PyTorch).
 
-Quick test (first 2 days only):
+**Smoke test** (2 days of raw data):
 
 ```bash
-python manage.py ingest_raw --max-files 2
+python manage.py run_pipeline --max-files 2 --quick-experiments --verbose
 ```
 
-Memory before/after report: `data/processed/ingest_report.json`
+---
 
-### 2. Build per-square series
+## Pipeline commands
+
+| Step | Command | Output |
+|------|---------|--------|
+| 1 · Ingest | `python manage.py ingest_raw [--verbose]` | `data/processed/daily/*.parquet`, `ingest_report.json` |
+| 2 · Series | `python manage.py build_series` | `data/processed/series/square_*.parquet`, `metadata.json` |
+| 3 · EDA | `python manage.py run_eda` | `data/outputs/eda/` |
+| 4 · Tuning | `python manage.py run_experiments [--quick]` | `experiments_log.csv`, `best_hyperparams.json` |
+| 5 · Forecast | `python manage.py run_forecast` | 9 plots, `metrics_square_*.csv`, `timing_table.csv` |
+| 6 · Failures | `python manage.py run_failure_analysis` | `data/outputs/failure_analysis/` |
 
 ```bash
-python manage.py build_series
+python manage.py runserver   # http://127.0.0.1:8000/ — plot dashboard
 ```
 
-Writes:
+---
 
-- `data/processed/series/square_<id>.parquet` for top-traffic square + squares 4159 and 4556
-- `data/processed/metadata.json` (includes `top_traffic_square_id`)
+## Results gallery
 
-### 3. Task 2 — Exploratory analysis
+Figures below are committed under `docs/images/` so GitHub renders them without running the pipeline. Full-resolution outputs are regenerated under `data/outputs/`.
 
-```bash
-python manage.py run_eda
-```
+### Task 2 — Exploratory analysis
 
-Figures under `data/outputs/eda/`.
+| Traffic PDF (10k areas) | Three areas — first two weeks |
+|:---:|:---:|
+| ![PDF](docs/images/eda/01_traffic_pdf.png) | ![Two weeks](docs/images/eda/02_three_areas_two_weeks.png) |
 
-### 4. Hyperparameter experiments (validation week Dec 9–15)
+| Stationarity (5161) | Seasonal decomposition (5161) |
+|:---:|:---:|
+| ![Stationarity](docs/images/eda/03_stationarity_square_5161.png) | ![Decomposition](docs/images/eda/04_decomposition_square_5161.png) |
 
-```bash
-python manage.py run_experiments
-python manage.py run_experiments --quick   # smaller grid for testing
-```
+| ACF / PACF (5161) | Spatial heatmap |
+|:---:|:---:|
+| ![ACF PACF](docs/images/eda/05_acf_pacf_square_5161.png) | ![Heatmap](docs/images/eda/06_spatial_heatmap.png) |
 
-ARIMA defaults use a **reduced search space** (`n_fits=3`, lower order caps) to limit RAM on laptops. Full grid: **37** experiment runs (5 ARIMA + 16 LSTM + 16 TCN on the tuning square); `--quick`: **8** runs.
+### Task 3 — Forecast overlays (test week)
 
-Writes `data/outputs/experiments/experiments_log.csv`, `experiment_journal.md`, and `data/processed/best_hyperparams.json`.
+**Square 5161** (highest traffic)
 
-### 5. Task 3 — Forecasting (ARIMA + LSTM + TCN)
+| ETS | LSTM | TCN |
+|:---:|:---:|:---:|
+| ![ETS 5161](docs/images/forecast/ets_square_5161.png) | ![LSTM 5161](docs/images/forecast/lstm_square_5161.png) | ![TCN 5161](docs/images/forecast/tcn_square_5161.png) |
 
-Test week: **2013-12-16 → 2013-12-22** (held out until this step).
+**Square 4159**
 
-```bash
-python manage.py run_forecast
-```
+| ETS | LSTM | TCN |
+|:---:|:---:|:---:|
+| ![ETS 4159](docs/images/forecast/ets_square_4159.png) | ![LSTM 4159](docs/images/forecast/lstm_square_4159.png) | ![TCN 4159](docs/images/forecast/tcn_square_4159.png) |
 
-Uses tuned hyperparameters from `best_hyperparams.json` (override with `--no-best-params`).
+**Square 4556**
 
-### 6. Failure analysis (worst intervals + residuals)
+| ETS | LSTM | TCN |
+|:---:|:---:|:---:|
+| ![ETS 4556](docs/images/forecast/ets_square_4556.png) | ![LSTM 4556](docs/images/forecast/lstm_square_4556.png) | ![TCN 4556](docs/images/forecast/tcn_square_4556.png) |
 
-```bash
-python manage.py run_failure_analysis
-```
+### Training & failure analysis
 
-Outputs:
+| LSTM training (5161) — early stopping | TCN training (4159) |
+|:---:|:---:|
+| ![LSTM train](docs/images/training/training_lstm_square_5161_h64_e10_s72.png) | ![TCN train](docs/images/training/training_tcn_square_4159_c32_e10_s144.png) |
 
-- `data/outputs/forecast/*.png` — 9 overlay plots
-- `data/outputs/forecast/training/*.png` — LSTM/TCN loss vs epoch (6 curves)
-- `data/outputs/forecast/timing_table.csv` — train/predict times + hardware JSON
-- `data/outputs/experiments/experiments_log.csv` — hyperparameter experiment log
-- `data/outputs/failure_analysis/` — residual plots + `failure_analysis.md`
-- `data/outputs/forecast/metrics_square_*.csv` — MAE, MAPE, RMSE tables
-- SQLite `ForecastRun` records
+| ETS residuals (5161) | TCN worst window (5161) |
+|:---:|:---:|
+| ![Residuals](docs/images/failure/residuals_ets_square_5161.png) | ![Worst window](docs/images/failure/worst_window_tcn_square_5161.png) |
 
-### View plots and training curves in the browser
+---
 
-```bash
-python manage.py runserver
-```
+## Test-week metrics (Dec 16–22)
 
-- http://127.0.0.1:8000/ — dashboard with all PNG galleries  
-- http://127.0.0.1:8000/guide/ — full project explanation  
+Tuned on validation week **2013-12-09 → 2013-12-15** (square **5161**); evaluated on test week with `best_hyperparams.json`.
 
-`run_forecast` prints **per-epoch loss** for LSTM/TCN in the terminal and saves curves under `data/outputs/forecast/training/`.
+### Square 5161
+
+| Model | MAE ↓ | MAPE (%) | RMSE | Train (s) |
+|-------|------:|---------:|-----:|----------:|
+| **ETS** | **310.1** | **26.1** | **470.0** | 2.2 |
+| LSTM | 1472.3 | 459.8 | 1678.0 | 21.4 |
+| TCN | 4749.3 | 858.8 | 5037.2 | 11.6 |
+
+### Square 4159
+
+| Model | MAE ↓ | MAPE (%) | RMSE | Train (s) |
+|-------|------:|---------:|-----:|----------:|
+| **ETS** | **64.8** | **28.1** | **85.7** | 2.7 |
+| TCN | 101.0 | 39.3 | 132.6 | 5.2 |
+| LSTM | 101.6 | 46.5 | 122.8 | 16.7 |
+
+### Square 4556
+
+| Model | MAE ↓ | MAPE (%) | RMSE | Train (s) |
+|-------|------:|---------:|-----:|----------:|
+| **LSTM** | **135.2** | **42.2** | **169.4** | 24.6 |
+| ETS | 176.1 | 48.6 | 196.0 | 1.2 |
+| TCN | 198.9 | 63.5 | 236.2 | 4.5 |
+
+**Takeaway:** **ETS** wins on the busiest cell and 4159; **LSTM** is best on 4556. Neural nets use recursive multi-step inference over 1,008 steps; ETS uses direct seasonal forecasting (period **144** = one day at 10-min resolution).
+
+---
+
+## Models
+
+| Model | Type | Implementation |
+|-------|------|----------------|
+| `ets` | Statistical | Holt–Winters (`statsmodels`), seasonal period 144 |
+| `lstm` | Neural | 2-layer LSTM, MinMax scaling, early stopping |
+| `tcn` | Neural | Temporal convolution network, same training setup |
+
+**Experimentation:** Phase 1 baseline + Phase 2 grid → **39 runs** on tuning square 5161 (`experiments_log.csv`). See `data/outputs/experiments/experiment_journal.md` after `run_experiments`.
+
+---
 
 ## Project layout
 
 ```
-time_series_forecasting/   Django project (settings, urls, wsgi)
-traffic/                   Django app
-  services/       loader, ETL, EDA, forecast models
-  management/commands/
-data/processed/   Parquet + series (generated)
-data/outputs/     Figures and metrics (generated)
+time_series_forecasting/     # Django settings, URLs
+traffic/
+  services/                  # loader, etl, eda, forecast/, experiments
+  management/commands/       # ingest_raw, build_series, run_eda, …
+docs/images/                 # Committed figures for README / GitHub
+data/processed/              # Generated Parquet & series
+data/outputs/                # Generated plots & CSVs (gitignored)
 ```
 
-## Models
+Details: **[PROJECT_GUIDE.md](PROJECT_GUIDE.md)**
 
-| Model | Type | Notes |
-|-------|------|--------|
-| `arima` | Statistical | `pmdarima.auto_arima`, seasonal period 144 (10 min) |
-| `lstm` | Neural | 2-layer LSTM, sequence length 144 |
-| `tcn` | Neural | Temporal convolution network |
+---
 
-## Submission subset
+## Submission subset (no full 5 GB corpus)
 
-For grading without the full 5 GB corpus, include:
+Include in the archive / repo:
 
-- Source code (this repo)
-- `data/processed/series/` for the three target squares
-- `data/processed/metadata.json`
-- Instructions above
+- All source code + `requirements.txt`
+- `docs/images/` (sample results)
+- `data/processed/series/` for squares **5161, 4159, 4556**
+- `data/processed/metadata.json`, `best_hyperparams.json`
 
-Re-run `run_forecast` on the subset after `build_series`.
+Then graders can run:
+
+```bash
+pip install -r requirements.txt && python manage.py migrate
+python manage.py run_forecast
+python manage.py run_failure_analysis
+```
+
+---
 
 ## References
 
-- Barlacchi et al., *Scientific Data* 2, 150055 (2015)
+- G. Barlacchi et al., “A multi-source dataset of urban life in the city of Milan and the Province of Trentino,” *Sci. Data* 2, 150055 (2015). [doi:10.1038/sdata.2015.55](https://doi.org/10.1038/sdata.2015.55)
 - [Telecommunications dataset](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/EGZHFV)
 - [Grid dataset](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/QJWLFU)
-
-## AI use
-
-Document any AI assistance in your PDF report per course integrity guidelines.
