@@ -68,14 +68,15 @@ EXPERIMENTS_DIR = OUTPUT_DIR / "experiments"
 BEST_PARAMS_PATH = PROCESSED_DIR / "best_hyperparams.json"
 FAILURE_DIR = OUTPUT_DIR / "failure_analysis"
 
+# ARIMA search kept modest: seasonal m=144 is RAM-heavy in pmdarima on ~8 GB machines.
 DEFAULT_HYPERPARAMS = {
     "arima": {
         "seasonal_m": 144,
-        "max_p": 3,
-        "max_q": 3,
-        "max_P": 2,
-        "max_Q": 2,
-        "n_fits": 8,
+        "max_p": 2,
+        "max_q": 2,
+        "max_P": 1,
+        "max_Q": 1,
+        "n_fits": 3,
     },
     "lstm": {
         "seq_len": 144,
@@ -97,9 +98,9 @@ DEFAULT_HYPERPARAMS = {
 # Phase 2 grid search (validation week only; test week never used here)
 EXPERIMENT_GRIDS = {
     "arima": {
-        "max_p": [2, 3],
-        "max_q": [2, 3],
-        "n_fits": [6, 10],
+        "max_p": [2],
+        "max_q": [2],
+        "n_fits": [3, 4],
     },
     "lstm": {
         "seq_len": [72, 144],
@@ -117,7 +118,7 @@ EXPERIMENT_GRIDS = {
 
 # Smaller grid for smoke tests (--quick)
 EXPERIMENT_GRIDS_QUICK = {
-    "arima": {"max_p": [2, 3], "n_fits": [6]},
+    "arima": {"max_p": [2], "n_fits": [3]},
     "lstm": {"seq_len": [72, 144], "epochs": [10]},
     "tcn": {"seq_len": [72, 144], "epochs": [10]},
 }

@@ -8,7 +8,11 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from traffic.services.forecast.base import BaseForecaster, ForecastResult
-from traffic.services.forecast.training import save_training_curve, train_epochs
+from traffic.services.forecast.training import (
+    get_torch_device,
+    save_training_curve,
+    train_epochs,
+)
 
 
 class TCNBlock(nn.Module):
@@ -88,13 +92,14 @@ class TcnForecaster(BaseForecaster):
             TensorDataset(X_t, y_t), batch_size=self.batch_size, shuffle=True
         )
 
-        device = torch.device("cpu")
+        device = get_torch_device()
         model = TCNNet(channels=self.channels).to(device)
 
         if verbose:
             print(
-                f"  [{self.name}] seq_len={self.seq_len} channels={self.channels} "
-                f"epochs={self.epochs} lr={self.lr} — {len(X):,} sequences"
+                f"  [{self.name}] device={device} seq_len={self.seq_len} "
+                f"channels={self.channels} epochs={self.epochs} lr={self.lr} "
+                f"— {len(X):,} sequences"
             )
 
         t0 = time.perf_counter()

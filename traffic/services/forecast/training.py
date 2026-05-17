@@ -11,6 +11,10 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 
+def get_torch_device() -> torch.device:
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 def train_epochs(
     model: nn.Module,
     loader: DataLoader,
