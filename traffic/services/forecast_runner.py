@@ -15,7 +15,6 @@ from traffic.services.experiments import load_best_params
 from traffic.services.failure_analysis import save_predictions
 from traffic.services.forecast.factory import create_forecaster, default_params
 from traffic.services.forecast.metrics import mae, mape, rmse
-from traffic.services.forecast.training import save_training_curve
 from traffic.services.hardware import collect_environment, save_environment
 from traffic.services.verbose import LogFn
 
@@ -74,7 +73,7 @@ def run_all_forecasts(
                 train,
                 test,
                 verbose=fit_verbose,
-                save_training_curve=True,
+                save_curve=True,
                 curve_dir=training_dir,
                 square_id=square_id,
             )

@@ -111,7 +111,7 @@ class EtsForecaster(BaseForecaster):
         test: pd.Series,
         *,
         verbose: bool = True,
-        save_training_curve: bool = True,
+        save_curve: bool = True,
         curve_dir=None,
         square_id: int | None = None,
     ) -> ForecastResult:

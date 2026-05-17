@@ -91,7 +91,7 @@ class TcnForecaster(BaseForecaster):
         test: pd.Series,
         *,
         verbose: bool = True,
-        save_training_curve: bool = True,
+        save_curve: bool = True,
         curve_dir: Path | None = None,
         square_id: int | None = None,
     ) -> ForecastResult:
@@ -140,7 +140,7 @@ class TcnForecaster(BaseForecaster):
         preds = self._walk_forward_predict(model, scaled, test, device)
         predict_seconds = time.perf_counter() - t1
 
-        if save_training_curve and curve_dir is not None and square_id is not None:
+        if save_curve and curve_dir is not None and square_id is not None:
             save_training_curve(
                 history,
                 model_name=self.name,

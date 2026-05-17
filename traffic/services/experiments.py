@@ -49,7 +49,7 @@ def _evaluate_on_validation(
         train,
         val,
         verbose=fit_verbose,
-        save_training_curve=False,
+        save_curve=False,
     )
     return {
         "val_mae": mae(result.y_true, result.y_pred),
