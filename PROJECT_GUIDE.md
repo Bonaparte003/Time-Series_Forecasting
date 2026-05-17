@@ -162,6 +162,21 @@ ARIMA has no epochs; it fits statistical parameters in one search (`auto_arima`)
 
 ---
 
+## Verbose progress
+
+Any step can print detailed progress:
+
+```bash
+python manage.py ingest_raw --verbose
+python manage.py build_series --verbose
+python manage.py run_pipeline --verbose
+# or: python manage.py <command> -v 2   (do not use bare -v)
+```
+
+`run_experiments` and `run_forecast` are verbose **by default**; pass `--quiet` to suppress.
+
+---
+
 ## Quick test vs full run
 
 ```bash

@@ -19,6 +19,7 @@ from traffic.models import ExperimentRun
 from traffic.services.etl import load_metadata, load_square_series
 from traffic.services.forecast.factory import create_forecaster, default_params
 from traffic.services.forecast.metrics import mae, mape, rmse
+from traffic.services.verbose import LogFn
 
 
 def _param_combinations(model_name: str, *, quick: bool = False) -> list[dict]:
@@ -40,14 +41,14 @@ def _evaluate_on_validation(
     params: dict,
     series: pd.Series,
     *,
-    verbose: bool,
+    fit_verbose: bool,
 ) -> dict:
     forecaster = create_forecaster(model_name, params)
     train, val = forecaster.split_for_tuning(series)
     result = forecaster.fit_predict(
         train,
         val,
-        verbose=verbose,
+        verbose=fit_verbose,
         save_training_curve=False,
     )
     return {
@@ -70,23 +71,30 @@ def run_experiments(
     *,
     square_id: int | None = None,
     models: tuple[str, ...] | None = None,
-    verbose: bool = True,
+    log: LogFn = None,
     quick: bool = False,
 ) -> dict:
     models = models or settings.FORECAST_MODELS
     metadata = load_metadata()
     tune_square = square_id or metadata["top_traffic_square_id"]
     series = load_square_series(tune_square)
+    fit_verbose = log is not None
 
     out_dir = Path(settings.EXPERIMENTS_DIR)
     out_dir.mkdir(parents=True, exist_ok=True)
     rows: list[dict] = []
     experiment_counter = 0
 
+    if log:
+        log(
+            f"Experiments on square {tune_square} | validation "
+            f"{settings.VAL_START} → {settings.VAL_END} | quick={quick}"
+        )
+
     for phase_cfg in settings.EXPERIMENT_PHASES:
         phase = phase_cfg["phase"]
-        if verbose:
-            print(f"\n######## Phase {phase}: {phase_cfg['name']} ########")
+        if log:
+            log(f"\n######## Phase {phase}: {phase_cfg['name']} ########")
 
         for model_name in models:
             if phase_cfg["use_grid"]:
@@ -94,15 +102,24 @@ def run_experiments(
             else:
                 param_list = [default_params(model_name)]
 
+            if log:
+                log(f"  {model_name}: {len(param_list)} configuration(s)")
+
             for params in param_list:
                 experiment_counter += 1
                 exp_id = f"P{phase}-{model_name}-{experiment_counter:03d}"
-                if verbose:
-                    print(f"\n[{exp_id}] {model_name} {params}")
+                if log:
+                    log(f"\n[{exp_id}] {model_name} {params}")
 
                 metrics = _evaluate_on_validation(
-                    model_name, params, series, verbose=verbose
+                    model_name, params, series, fit_verbose=fit_verbose
                 )
+                if log:
+                    log(
+                        f"  val MAE={metrics['val_mae']:.4f} "
+                        f"RMSE={metrics['val_rmse']:.4f} "
+                        f"train={metrics['train_seconds']:.1f}s"
+                    )
                 reasoning = _reasoning_for_phase(phase_cfg, model_name, params)
 
                 row = {
@@ -145,6 +162,11 @@ def run_experiments(
 
     journal_path = out_dir / "experiment_journal.md"
     _write_journal(df, best, tune_square, journal_path)
+
+    if log:
+        log(f"\nWrote {csv_path.name} ({len(rows)} runs)")
+        log(f"Best params: {best_path}")
+        log(f"Journal: {journal_path}")
 
     return {
         "tuning_square_id": tune_square,

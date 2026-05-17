@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 
 from traffic.services.experiments import run_experiments
 from traffic.services.paths import ensure_dirs
+from traffic.services.verbose import add_quiet_argument, add_verbose_argument, command_log
 
 
 class Command(BaseCommand):
@@ -23,11 +24,8 @@ class Command(BaseCommand):
             default=None,
             help="Models to tune: arima lstm tcn",
         )
-        parser.add_argument(
-            "--quiet",
-            action="store_true",
-            help="Less terminal output.",
-        )
+        add_verbose_argument(parser)
+        add_quiet_argument(parser)
         parser.add_argument(
             "--quick",
             action="store_true",
@@ -40,7 +38,7 @@ class Command(BaseCommand):
         result = run_experiments(
             square_id=options["square_id"],
             models=models,
-            verbose=not options["quiet"],
+            log=command_log(options, self.stdout.write, default=True),
             quick=options["quick"],
         )
         self.stdout.write(self.style.SUCCESS("Experiments complete."))

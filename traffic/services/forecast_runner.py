@@ -17,6 +17,7 @@ from traffic.services.forecast.factory import create_forecaster, default_params
 from traffic.services.forecast.metrics import mae, mape, rmse
 from traffic.services.forecast.training import save_training_curve
 from traffic.services.hardware import collect_environment, save_environment
+from traffic.services.verbose import LogFn
 
 
 def _resolve_params(model_name: str, use_best: bool) -> dict:
@@ -30,7 +31,7 @@ def _resolve_params(model_name: str, use_best: bool) -> dict:
 def run_all_forecasts(
     models: tuple[str, ...] | None = None,
     *,
-    verbose: bool = True,
+    log: LogFn = None,
     use_best_params: bool = True,
 ) -> dict:
     models = models or settings.FORECAST_MODELS
@@ -40,28 +41,39 @@ def run_all_forecasts(
     training_dir = out_dir / "training"
     out_dir.mkdir(parents=True, exist_ok=True)
     training_dir.mkdir(parents=True, exist_ok=True)
+    fit_verbose = log is not None
 
     env_path = out_dir / "hardware_environment.json"
     save_environment(env_path)
+    if log:
+        log(
+            f"Task 3 forecast — squares {square_ids} | test week "
+            f"{settings.TEST_START} → {settings.TEST_END}"
+        )
+        log(f"Models: {', '.join(models)} | best_params={use_best_params}")
 
     all_metrics: dict[int, list[dict]] = {sid: [] for sid in square_ids}
     timing_rows: list[dict] = []
 
     for square_id in square_ids:
-        if verbose:
-            print(f"\n=== Square {square_id} ===")
+        if log:
+            log(f"\n=== Square {square_id} ===")
         series = load_square_series(square_id)
+        if log:
+            log(f"  series length: {len(series):,} intervals")
         for model_name in models:
             params = _resolve_params(model_name, use_best_params)
-            if verbose:
-                print(f"\n--- Model: {model_name} ---")
-                print(f"    Hyperparameters: {params}")
+            if log:
+                log(f"\n--- Model: {model_name} ---")
+                log(f"    Hyperparameters: {params}")
             forecaster = create_forecaster(model_name, params)
             train, test = forecaster.split_train_test(series)
+            if log:
+                log(f"    train: {len(train):,} | test: {len(test):,}")
             result = forecaster.fit_predict(
                 train,
                 test,
-                verbose=verbose,
+                verbose=fit_verbose,
                 save_training_curve=True,
                 curve_dir=training_dir,
                 square_id=square_id,
@@ -84,8 +96,8 @@ def run_all_forecasts(
             plot_path = out_dir / f"{model_name}_square_{square_id}.png"
             fig.savefig(plot_path, dpi=150)
             plt.close(fig)
-            if verbose:
-                print(f"    Saved forecast plot: {plot_path}")
+            if log:
+                log(f"    Saved forecast plot: {plot_path.name}")
 
             metrics = {
                 "square_id": square_id,
@@ -102,6 +114,12 @@ def run_all_forecasts(
             }
             all_metrics[square_id].append(metrics)
             timing_rows.append({**metrics, "total_seconds": metrics["train_seconds"] + metrics["predict_seconds"]})
+            if log:
+                log(
+                    f"    MAE={metrics['mae']:.4f} MAPE={metrics['mape']:.2f}% "
+                    f"RMSE={metrics['rmse']:.4f} | "
+                    f"train={metrics['train_seconds']:.1f}s predict={metrics['predict_seconds']:.1f}s"
+                )
 
             ForecastRun.objects.update_or_create(
                 square_id=square_id,
@@ -118,7 +136,10 @@ def run_all_forecasts(
 
     for square_id, rows in all_metrics.items():
         table = pd.DataFrame(rows)
-        table.to_csv(out_dir / f"metrics_square_{square_id}.csv", index=False)
+        path = out_dir / f"metrics_square_{square_id}.csv"
+        table.to_csv(path, index=False)
+        if log:
+            log(f"Metrics table: {path.name}")
 
     timing_df = pd.DataFrame(timing_rows)
     timing_path = out_dir / "timing_table.csv"
@@ -140,6 +161,9 @@ def run_all_forecasts(
     summary_path = out_dir / "metrics_summary.json"
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(all_metrics, f, indent=2)
+
+    if log:
+        log(f"Timing: {timing_path.name} | {timing_json_path.name}")
 
     return {
         "square_ids": square_ids,

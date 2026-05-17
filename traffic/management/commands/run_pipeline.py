@@ -1,6 +1,8 @@
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
+from traffic.services.verbose import add_verbose_argument, is_verbose
+
 
 class Command(BaseCommand):
     help = (
@@ -15,11 +17,7 @@ class Command(BaseCommand):
             default=None,
             help="Limit raw files during ingest (testing).",
         )
-        parser.add_argument(
-            "--verbose",
-            action="store_true",
-            help="Verbose output during ingest_raw (or use -v 2 on this command).",
-        )
+        add_verbose_argument(parser)
         parser.add_argument(
             "--skip-experiments",
             action="store_true",
@@ -36,27 +34,47 @@ class Command(BaseCommand):
             help="Stop after EDA / experiments.",
         )
 
+    def _subcommand_kwargs(self, options: dict) -> dict:
+        kwargs = {}
+        if is_verbose(options):
+            kwargs["verbose"] = True
+        if options.get("verbosity", 1) >= 2:
+            kwargs["verbosity"] = options["verbosity"]
+        return kwargs
+
     def handle(self, *args, **options):
-        ingest_kwargs = {}
+        sub = self._subcommand_kwargs(options)
+
+        ingest_kwargs = dict(sub)
         if options["max_files"]:
             ingest_kwargs["max_files"] = options["max_files"]
-        if options["verbose"]:
-            ingest_kwargs["verbose"] = True
-        if options.get("verbosity", 1) >= 2:
-            ingest_kwargs.setdefault("verbosity", options["verbosity"])
 
+        if is_verbose(options):
+            self.stdout.write("=== ingest_raw ===")
         call_command("ingest_raw", **ingest_kwargs)
-        call_command("build_series")
-        call_command("run_eda")
+
+        if is_verbose(options):
+            self.stdout.write("\n=== build_series ===")
+        call_command("build_series", **sub)
+
+        if is_verbose(options):
+            self.stdout.write("\n=== run_eda ===")
+        call_command("run_eda", **sub)
 
         if not options["skip_experiments"]:
-            exp_kwargs = {}
+            exp_kwargs = dict(sub)
             if options["quick_experiments"]:
                 exp_kwargs["quick"] = True
+            if is_verbose(options):
+                self.stdout.write("\n=== run_experiments ===")
             call_command("run_experiments", **exp_kwargs)
 
         if not options["skip_forecast"]:
-            call_command("run_forecast")
-            call_command("run_failure_analysis")
+            if is_verbose(options):
+                self.stdout.write("\n=== run_forecast ===")
+            call_command("run_forecast", **sub)
+            if is_verbose(options):
+                self.stdout.write("\n=== run_failure_analysis ===")
+            call_command("run_failure_analysis", **sub)
 
         self.stdout.write(self.style.SUCCESS("Pipeline finished."))

@@ -35,13 +35,18 @@ Chunked read, Italy-only (`country_code=39`), internet column, optimized dtypes,
 python manage.py ingest_raw
 ```
 
-Per-file and per-chunk progress:
+Step-by-step progress on any pipeline command:
 
 ```bash
 python manage.py ingest_raw --verbose
-# or Django verbosity level 2+ (do not use bare `-v`; that flag is reserved):
-python manage.py ingest_raw -v 2
+python manage.py build_series --verbose
+python manage.py run_eda --verbose
+python manage.py run_pipeline --verbose
+# or Django verbosity 2+ (use `-v 2`, not bare `-v`):
+python manage.py build_series -v 2
 ```
+
+`run_experiments` and `run_forecast` log by default; use `--quiet` to suppress.
 
 Quick test (first 2 days only):
 

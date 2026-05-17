@@ -15,6 +15,7 @@ from statsmodels.tsa.stattools import adfuller
 
 from traffic.services.etl import load_metadata, load_square_series
 from traffic.services.loader import load_parquet_dataset
+from traffic.services.verbose import LogFn
 
 
 def _out(name: str) -> Path:
@@ -124,28 +125,57 @@ def plot_spatial_heatmap(df: pd.DataFrame) -> Path:
     return out
 
 
-def run_eda() -> list[Path]:
-    df = load_parquet_dataset()
+def run_eda(log: LogFn = None) -> list[Path]:
+    if log:
+        log("Task 2 EDA — loading daily Parquet dataset...")
+    df = load_parquet_dataset(log=log)
     metadata = load_metadata()
     targets = metadata["target_square_ids"]
+    if log:
+        log(f"Target squares: {targets}")
+        log("Loading per-square series from processed/series/...")
     series_map = {sid: load_square_series(sid) for sid in targets}
 
-    outputs = [
-        plot_traffic_pdf(df),
-        plot_three_areas_two_weeks(series_map),
-        plot_spatial_heatmap(df),
+    outputs = []
+    steps = [
+        ("traffic PDF / histogram", lambda: plot_traffic_pdf(df)),
+        ("three areas — two weeks", lambda: plot_three_areas_two_weeks(series_map)),
+        ("spatial heatmap", lambda: plot_spatial_heatmap(df)),
     ]
+    for label, fn in steps:
+        if log:
+            log(f"Plotting {label}...")
+        outputs.append(fn())
+        if log:
+            log(f"  saved {outputs[-1].name}")
+
     ref_square = targets[0]
     for sid in targets:
         s = series_map[sid]
+        if log:
+            log(f"Stationarity + ADF for square {sid}...")
         outputs.append(plot_stationarity(s, sid))
+        if log:
+            log(f"  saved {outputs[-1].name}")
         if sid == ref_square:
+            if log:
+                log(f"Decomposition + ACF/PACF for reference square {sid}...")
             outputs.append(plot_decomposition(s, sid))
+            if log:
+                log(f"  saved {outputs[-1].name}")
             outputs.append(plot_acf_pacf(s, sid))
+            if log:
+                log(f"  saved {outputs[-1].name}")
 
+    if log:
+        log("Exporting outlier sample CSV...")
     z = (df["internet_traffic"] - df["internet_traffic"].mean()) / df[
         "internet_traffic"
     ].std()
     outliers = df.loc[z.abs() > 4, ["square_id", "timestamp", "internet_traffic"]]
-    outliers.head(500).to_csv(_out("07_outlier_sample.csv"), index=False)
+    outlier_path = _out("07_outlier_sample.csv")
+    outliers.head(500).to_csv(outlier_path, index=False)
+    outputs.append(outlier_path)
+    if log:
+        log(f"  saved {outlier_path.name} ({min(len(outliers), 500)} rows)")
     return outputs

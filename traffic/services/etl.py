@@ -9,6 +9,7 @@ import pandas as pd
 from django.conf import settings
 
 from traffic.services.loader import load_parquet_dataset
+from traffic.services.verbose import LogFn
 
 
 def series_from_frame(sub: pd.DataFrame) -> pd.Series:
@@ -22,11 +23,17 @@ def series_from_frame(sub: pd.DataFrame) -> pd.Series:
     return s.reindex(full_idx, fill_value=0.0)
 
 
-def save_series(series_map: dict[int, pd.Series], out_dir: Path) -> None:
+def save_series(
+    series_map: dict[int, pd.Series],
+    out_dir: Path,
+    log: LogFn = None,
+) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     for square_id, s in series_map.items():
         path = out_dir / f"square_{square_id}.parquet"
         pd.DataFrame({"traffic": s}).to_parquet(path)
+        if log:
+            log(f"  wrote {path.name} ({len(s):,} intervals)")
 
 
 def load_square_series(square_id: int) -> pd.Series:
@@ -40,8 +47,11 @@ def load_square_series(square_id: int) -> pd.Series:
 def run_build_series(
     parquet_daily_dir: Path | None = None,
     save_all: bool = False,
+    log: LogFn = None,
 ) -> dict:
-    df = load_parquet_dataset(parquet_daily_dir)
+    df = load_parquet_dataset(parquet_daily_dir, log=log)
+    if log:
+        log("Computing per-square traffic totals...")
     totals = df.groupby("square_id")["internet_traffic"].sum()
     top_square = int(totals.idxmax())
     target_squares = [top_square] + list(settings.FIXED_SQUARE_IDS)
@@ -51,11 +61,19 @@ def run_build_series(
     else:
         ids_to_build = target_squares
 
+    if log:
+        log(f"Top-traffic square: {top_square}")
+        log(f"Building {len(ids_to_build)} time series (save_all={save_all})...")
+
     series_map = {}
     for square_id in ids_to_build:
         sub = df[df["square_id"] == square_id]
         if sub.empty:
+            if log:
+                log(f"  square {square_id}: skipped (no rows)")
             continue
+        if log:
+            log(f"  square {square_id}: {len(sub):,} raw rows → regular 10-min series")
         series_map[int(square_id)] = series_from_frame(sub)
 
     metadata = {
@@ -68,11 +86,15 @@ def run_build_series(
         "n_squares": int(totals.shape[0]),
     }
 
-    save_series(series_map, settings.SERIES_DIR)
+    if log:
+        log(f"Saving series to {settings.SERIES_DIR}")
+    save_series(series_map, settings.SERIES_DIR, log=log)
 
     settings.METADATA_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(settings.METADATA_PATH, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
+    if log:
+        log(f"Wrote metadata: {settings.METADATA_PATH}")
 
     return metadata
 

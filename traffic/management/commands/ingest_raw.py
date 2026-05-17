@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand
 from traffic.models import IngestionRun
 from traffic.services.loader import ingest_files
 from traffic.services.paths import ensure_dirs, raw_data_files
+from traffic.services.verbose import add_verbose_argument, command_log
 
 
 class Command(BaseCommand):
@@ -17,14 +18,7 @@ class Command(BaseCommand):
             default=None,
             help="Process only the first N files (for quick tests).",
         )
-        parser.add_argument(
-            "--verbose",
-            action="store_true",
-            help=(
-                "Print per-file and per-chunk progress while ingesting. "
-                "Also enabled when Django verbosity is 2+ (e.g. manage.py ingest_raw -v 2)."
-            ),
-        )
+        add_verbose_argument(parser)
 
     def handle(self, *args, **options):
         from django.conf import settings
@@ -34,14 +28,16 @@ class Command(BaseCommand):
         daily_dir = settings.PROCESSED_DIR / "daily"
 
         self.stdout.write(f"Found {len(files)} raw files.")
-        verbose = options["verbose"] or options.get("verbosity", 1) >= 2
-        log = self.stdout.write if verbose else None
         stats = ingest_files(
             files,
             daily_dir,
             max_files=options["max_files"],
-            log=log,
+            log=command_log(options, self.stdout.write),
         )
+
+        report_path = settings.PROCESSED_DIR / "ingest_report.json"
+        with open(report_path, "w", encoding="utf-8") as f:
+            json.dump(stats, f, indent=2)
 
         run = IngestionRun.objects.create(
             files_processed=stats["files_processed"],
@@ -50,10 +46,6 @@ class Command(BaseCommand):
             memory_after_mb=stats["memory_after_mb"],
             notes=json.dumps(stats, indent=2),
         )
-
-        report_path = settings.PROCESSED_DIR / "ingest_report.json"
-        with open(report_path, "w", encoding="utf-8") as f:
-            json.dump(stats, f, indent=2)
 
         self.stdout.write(self.style.SUCCESS(f"Ingestion complete (run id={run.pk})."))
         self.stdout.write(

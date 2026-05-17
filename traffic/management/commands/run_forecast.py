@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 
 from traffic.services.forecast_runner import run_all_forecasts
 from traffic.services.paths import ensure_dirs
+from traffic.services.verbose import add_quiet_argument, add_verbose_argument, command_log
 
 
 class Command(BaseCommand):
@@ -14,11 +15,8 @@ class Command(BaseCommand):
             default=None,
             help="Subset of models: arima lstm tcn",
         )
-        parser.add_argument(
-            "--quiet",
-            action="store_true",
-            help="Suppress per-epoch terminal output.",
-        )
+        add_verbose_argument(parser)
+        add_quiet_argument(parser)
         parser.add_argument(
             "--no-best-params",
             action="store_true",
@@ -30,7 +28,7 @@ class Command(BaseCommand):
         models = tuple(options["models"]) if options["models"] else None
         result = run_all_forecasts(
             models=models,
-            verbose=not options["quiet"],
+            log=command_log(options, self.stdout.write, default=True),
             use_best_params=not options["no_best_params"],
         )
         self.stdout.write(self.style.SUCCESS("Forecasting complete."))

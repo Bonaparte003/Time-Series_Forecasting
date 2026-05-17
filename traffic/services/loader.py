@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import gc
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from django.conf import settings
+
+from traffic.services.verbose import LogFn
 
 
 COLUMNS = ["square_id", "time_ms", "country_code", "internet_traffic"]
@@ -69,7 +70,7 @@ def ingest_files(
     files: list[Path],
     daily_dir: Path,
     max_files: int | None = None,
-    log: Callable[[str], None] | None = None,
+    log: LogFn = None,
 ) -> dict:
     """
     Stream raw files into one Parquet file per day under daily_dir.
@@ -154,18 +155,38 @@ def ingest_files(
     }
 
 
-def load_parquet_dataset(daily_dir: Path | None = None) -> pd.DataFrame:
+def load_parquet_dataset(
+    daily_dir: Path | None = None,
+    log: LogFn = None,
+) -> pd.DataFrame:
     """Load all daily Parquet shards into one dataframe."""
     daily_dir = daily_dir or (settings.PROCESSED_DIR / "daily")
     files = sorted(daily_dir.glob("*.parquet"))
     if not files:
         merged = settings.PARQUET_PATH
         if merged.exists():
+            if log:
+                log(f"Loading merged Parquet: {merged}")
             return pd.read_parquet(merged)
         raise FileNotFoundError(
             f"No parquet data in {daily_dir}. Run: python manage.py ingest_raw"
         )
-    frames = [pd.read_parquet(f) for f in files]
+    n_files = len(files)
+    if log:
+        log(f"Loading {n_files} daily Parquet shards from {daily_dir}")
+    frames = []
+    for i, path in enumerate(files, start=1):
+        if log:
+            log(f"  [{i}/{n_files}] {path.name}")
+        frames.append(pd.read_parquet(path))
+    if log:
+        log("Concatenating shards...")
     df = pd.concat(frames, ignore_index=True)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    if log:
+        log(
+            f"Loaded {len(df):,} rows | "
+            f"{df['square_id'].nunique():,} squares | "
+            f"{df['timestamp'].min()} → {df['timestamp'].max()}"
+        )
     return df

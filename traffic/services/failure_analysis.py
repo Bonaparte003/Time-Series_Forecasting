@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 from django.conf import settings
 
+from traffic.services.verbose import LogFn
+
 
 def _predictions_dir() -> Path:
     return Path(settings.OUTPUT_DIR) / "forecast" / "predictions"
@@ -39,7 +41,7 @@ def save_predictions(
     return path
 
 
-def run_failure_analysis(*, window_intervals: int = 36) -> dict:
+def run_failure_analysis(*, window_intervals: int = 36, log: LogFn = None) -> dict:
     """
     window_intervals: length of sliding window in 10-min steps (36 ≈ 6 hours).
     """
@@ -53,8 +55,16 @@ def run_failure_analysis(*, window_intervals: int = 36) -> dict:
         )
 
     findings: list[dict] = []
+    pred_files = sorted(pred_dir.glob("*.csv"))
+    if log:
+        log(
+            f"Failure analysis — {len(pred_files)} prediction files, "
+            f"window={window_intervals} intervals (~{window_intervals * 10 // 60}h)"
+        )
 
-    for csv_path in sorted(pred_dir.glob("*.csv")):
+    for csv_path in pred_files:
+        if log:
+            log(f"Analyzing {csv_path.name}...")
         df = pd.read_csv(csv_path, parse_dates=["timestamp"])
         stem = csv_path.stem
         parts = stem.split("_square_")
@@ -110,6 +120,11 @@ def run_failure_analysis(*, window_intervals: int = 36) -> dict:
             out_dir / f"worst_window_{model_name}_square_{square_id}.png", dpi=150
         )
         plt.close(fig)
+        if log:
+            log(
+                f"  worst window {finding['worst_window_start']} → "
+                f"{finding['worst_window_end']} (window MAE={finding['window_mae']:.4f})"
+            )
 
     report = {
         "window_intervals": window_intervals,
@@ -124,6 +139,14 @@ def run_failure_analysis(*, window_intervals: int = 36) -> dict:
 
     md_path = out_dir / "failure_analysis.md"
     _write_failure_markdown(report, md_path)
+    if log:
+        log(f"Wrote {json_path.name}, {md_path.name}")
+        if report.get("overall_worst"):
+            ow = report["overall_worst"]
+            log(
+                f"Overall worst: {ow['model']} square {ow['square_id']} "
+                f"({ow['worst_window_start']} – {ow['worst_window_end']})"
+            )
 
     return {"output_dir": str(out_dir), "report": str(json_path), "markdown": str(md_path)}
 
