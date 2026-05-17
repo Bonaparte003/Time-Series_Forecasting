@@ -5,10 +5,9 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
-
 from traffic.services.forecast.base import BaseForecaster, ForecastResult
 from traffic.services.forecast.training import (
+    build_sequence_loaders,
     get_torch_device,
     save_training_curve,
     train_epochs,
@@ -56,18 +55,35 @@ class TcnForecaster(BaseForecaster):
         batch_size: int = 64,
         lr: float = 1e-3,
         channels: int = 32,
+        holdout_intervals: int | None = None,
+        patience: int = 3,
+        min_delta: float = 1e-5,
+        early_stopping: bool = True,
     ):
+        from django.conf import settings
+
         super().__init__(
             seq_len=seq_len,
             epochs=epochs,
             batch_size=batch_size,
             lr=lr,
             channels=channels,
+            holdout_intervals=holdout_intervals
+            or settings.NN_TRAIN_HOLDOUT_INTERVALS,
+            patience=patience,
+            min_delta=min_delta,
+            early_stopping=early_stopping,
         )
         self.epochs = epochs
         self.batch_size = batch_size
         self.lr = lr
         self.channels = channels
+        self.holdout_intervals = (
+            holdout_intervals or settings.NN_TRAIN_HOLDOUT_INTERVALS
+        )
+        self.patience = patience
+        self.min_delta = min_delta
+        self.early_stopping = early_stopping
 
     def fit_predict(
         self,
@@ -86,10 +102,13 @@ class TcnForecaster(BaseForecaster):
                 f"Not enough training points for seq_len={self.seq_len} "
                 f"(have {len(scaled)})."
             )
-        X_t = torch.tensor(X, dtype=torch.float32).unsqueeze(-1)
-        y_t = torch.tensor(y, dtype=torch.float32)
-        loader = DataLoader(
-            TensorDataset(X_t, y_t), batch_size=self.batch_size, shuffle=True
+
+        train_loader, val_loader, n_train, n_val = build_sequence_loaders(
+            X,
+            y,
+            batch_size=self.batch_size,
+            holdout_intervals=self.holdout_intervals,
+            lstm_targets=False,
         )
 
         device = get_torch_device()
@@ -98,13 +117,22 @@ class TcnForecaster(BaseForecaster):
         if verbose:
             print(
                 f"  [{self.name}] device={device} seq_len={self.seq_len} "
-                f"channels={self.channels} epochs={self.epochs} lr={self.lr} "
-                f"— {len(X):,} sequences"
+                f"channels={self.channels} max_epochs={self.epochs} lr={self.lr} "
+                f"— train_seq={n_train:,} val_seq={n_val:,} "
+                f"early_stop={self.early_stopping} patience={self.patience}"
             )
 
         t0 = time.perf_counter()
-        epoch_losses = train_epochs(
-            model, loader, epochs=self.epochs, lr=self.lr, device=device, verbose=verbose
+        history = train_epochs(
+            model,
+            train_loader,
+            epochs=self.epochs,
+            lr=self.lr,
+            device=device,
+            val_loader=val_loader if self.early_stopping else None,
+            patience=self.patience if self.early_stopping else 0,
+            min_delta=self.min_delta,
+            verbose=verbose,
         )
         train_seconds = time.perf_counter() - t0
 
@@ -114,7 +142,7 @@ class TcnForecaster(BaseForecaster):
 
         if save_training_curve and curve_dir is not None and square_id is not None:
             save_training_curve(
-                epoch_losses,
+                history,
                 model_name=self.name,
                 square_id=square_id,
                 out_dir=curve_dir,
@@ -128,7 +156,8 @@ class TcnForecaster(BaseForecaster):
             train_seconds=train_seconds,
             predict_seconds=predict_seconds,
             index=test.index,
-            epoch_losses=epoch_losses,
+            epoch_losses=history.train_loss,
+            training_history=history.to_dict(),
             hyperparams=self.hyperparams,
         )
 

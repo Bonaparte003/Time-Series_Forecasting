@@ -99,6 +99,7 @@ def run_all_forecasts(
             if log:
                 log(f"    Saved forecast plot: {plot_path.name}")
 
+            th = result.training_history or {}
             metrics = {
                 "square_id": square_id,
                 "model": model_name,
@@ -111,14 +112,35 @@ def run_all_forecasts(
                 "final_train_loss": (
                     result.epoch_losses[-1] if result.epoch_losses else None
                 ),
+                "epochs_run": len(th["train_loss"]) if th.get("train_loss") else None,
+                "best_epoch": th.get("best_epoch"),
+                "stopped_early": th.get("stopped_early"),
+                "best_val_loss": (
+                    th["val_loss"][th["best_epoch"] - 1]
+                    if th.get("val_loss") and th.get("best_epoch")
+                    else None
+                ),
+                "best_val_mae": (
+                    th["val_mae"][th["best_epoch"] - 1]
+                    if th.get("val_mae") and th.get("best_epoch")
+                    else None
+                ),
             }
             all_metrics[square_id].append(metrics)
             timing_rows.append({**metrics, "total_seconds": metrics["train_seconds"] + metrics["predict_seconds"]})
             if log:
+                train_note = ""
+                if th:
+                    train_note = (
+                        f" | epochs={metrics['epochs_run']} "
+                        f"best={metrics['best_epoch']}"
+                        f"{' early_stop' if metrics['stopped_early'] else ''}"
+                    )
                 log(
                     f"    MAE={metrics['mae']:.4f} MAPE={metrics['mape']:.2f}% "
                     f"RMSE={metrics['rmse']:.4f} | "
                     f"train={metrics['train_seconds']:.1f}s predict={metrics['predict_seconds']:.1f}s"
+                    f"{train_note}"
                 )
 
             ForecastRun.objects.update_or_create(

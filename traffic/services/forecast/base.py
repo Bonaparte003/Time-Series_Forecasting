@@ -18,6 +18,7 @@ class ForecastResult:
     predict_seconds: float
     index: pd.DatetimeIndex
     epoch_losses: list[float] | None = None
+    training_history: dict | None = None
     hyperparams: dict | None = None
 
 

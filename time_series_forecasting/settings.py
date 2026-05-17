@@ -64,6 +64,11 @@ EDA_TWO_WEEKS_END = "2013-11-14"
 SEQUENCE_LENGTH = 144
 FORECAST_MODELS = ("ets", "lstm", "tcn")
 
+# Neural training: hold out last N intervals of train series for early stopping
+NN_TRAIN_HOLDOUT_INTERVALS = 144
+NN_EARLY_STOPPING_PATIENCE = 3
+NN_EARLY_STOPPING_MIN_DELTA = 1e-5
+
 EXPERIMENTS_DIR = OUTPUT_DIR / "experiments"
 BEST_PARAMS_PATH = PROCESSED_DIR / "best_hyperparams.json"
 FAILURE_DIR = OUTPUT_DIR / "failure_analysis"
@@ -83,6 +88,10 @@ DEFAULT_HYPERPARAMS = {
         "lr": 1e-3,
         "hidden": 64,
         "layers": 2,
+        "early_stopping": True,
+        "patience": 3,
+        "holdout_intervals": 144,
+        "min_delta": 1e-5,
     },
     "tcn": {
         "seq_len": 144,
@@ -90,6 +99,10 @@ DEFAULT_HYPERPARAMS = {
         "batch_size": 64,
         "lr": 1e-3,
         "channels": 32,
+        "early_stopping": True,
+        "patience": 3,
+        "holdout_intervals": 144,
+        "min_delta": 1e-5,
     },
 }
 
