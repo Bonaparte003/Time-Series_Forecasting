@@ -1,9 +1,9 @@
-from traffic.services.forecast.arima import ArimaForecaster
+from traffic.services.forecast.ets import EtsForecaster
 from traffic.services.forecast.lstm import LstmForecaster
 from traffic.services.forecast.tcn import TcnForecaster
 
 FORECASTERS = {
-    "arima": ArimaForecaster,
+    "ets": EtsForecaster,
     "lstm": LstmForecaster,
     "tcn": TcnForecaster,
 }

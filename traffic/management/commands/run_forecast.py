@@ -6,14 +6,14 @@ from traffic.services.verbose import add_quiet_argument, add_verbose_argument, c
 
 
 class Command(BaseCommand):
-    help = "Task 3: train and evaluate ARIMA, LSTM, and TCN on target squares."
+    help = "Task 3: train and evaluate ETS, LSTM, and TCN on target squares."
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--models",
             nargs="+",
             default=None,
-            help="Subset of models: arima lstm tcn",
+            help="Subset of models: ets lstm tcn",
         )
         add_verbose_argument(parser)
         add_quiet_argument(parser)

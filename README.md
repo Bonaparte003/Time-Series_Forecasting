@@ -9,9 +9,10 @@ Django project **`time_series_forecasting`** for **Formative 1** (Comparative Ti
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.10–3.12 (PyTorch wheels may be unavailable on 3.14+)
 - ~8 GB RAM recommended for full ingest (dataset ~5 GB raw)
 - macOS, Linux, or Windows
+- `numpy>=1.26,<2` (required for PyTorch compatibility; pinned in `requirements.txt`)
 
 ## Setup
 
@@ -81,6 +82,8 @@ Figures under `data/outputs/eda/`.
 python manage.py run_experiments
 python manage.py run_experiments --quick   # smaller grid for testing
 ```
+
+ARIMA defaults use a **reduced search space** (`n_fits=3`, lower order caps) to limit RAM on laptops. Full grid: **37** experiment runs (5 ARIMA + 16 LSTM + 16 TCN on the tuning square); `--quick`: **8** runs.
 
 Writes `data/outputs/experiments/experiments_log.csv`, `experiment_journal.md`, and `data/processed/best_hyperparams.json`.
 

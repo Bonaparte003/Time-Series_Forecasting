@@ -22,7 +22,7 @@ class Command(BaseCommand):
             "--models",
             nargs="+",
             default=None,
-            help="Models to tune: arima lstm tcn",
+            help="Models to tune: ets lstm tcn",
         )
         add_verbose_argument(parser)
         add_quiet_argument(parser)

@@ -148,7 +148,7 @@ def run_all_forecasts(
     timing_report = {
         "environment": collect_environment(),
         "measurement_note": (
-            "train_seconds = model.fit / auto_arima search; "
+            "train_seconds = model.fit (ETS / NN training); "
             "predict_seconds = one-step walk-forward over test week; "
             "recorded via time.perf_counter() on local machine."
         ),
