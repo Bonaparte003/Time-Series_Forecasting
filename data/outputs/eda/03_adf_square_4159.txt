@@ -1,0 +1,2 @@
+ADF statistic: -12.8456
+p-value: 0.000000

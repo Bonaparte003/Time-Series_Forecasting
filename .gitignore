@@ -15,5 +15,5 @@ dataverse_files/
 dataverse_files*/
 
 data/processed/daily/
-data/outputs/
+data/processed/series/
 *.parquet

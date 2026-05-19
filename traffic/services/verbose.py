@@ -8,7 +8,7 @@ LogFn = Callable[[str], None] | None
 
 VERBOSE_HELP = (
     "Print step-by-step progress. "
-    "Also enabled when Django verbosity is 2+ (e.g. manage.py <command> -v 2)."
+    "(e.g. python manage.py <command> --verbose)."
 )
 
 
@@ -24,9 +24,7 @@ def command_log(
 ) -> LogFn:
     """
     Return a log function (stdout.write) or None.
-
-    ``--quiet`` disables logging. Otherwise logging is on when ``--verbose``,
-    Django ``-v 2+``, or ``default=True`` (experiments / forecast).
+    --quite disables logging while --verbose enables logging
     """
     if options.get("quiet"):
         return None
