@@ -183,7 +183,7 @@ def _write_failure_markdown(report: dict, path: Path) -> None:
                 "",
                 "Possible causes to discuss (link to Task 2):",
                 "- Pre-holiday traffic surge (mid-December).",
-                "- Model lag on sharp ramps (neural nets using recursive preds).",
+                "- Model lag on sharp ramps or holiday surges (one-step-ahead NNs vs ETS seasonality).",
                 "- Non-stationarity / weekend vs weekday pattern shift.",
                 "- Single-square idiosyncrasy vs city-wide events.",
             ]

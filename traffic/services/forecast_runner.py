@@ -170,7 +170,7 @@ def run_all_forecasts(
         "environment": collect_environment(),
         "measurement_note": (
             "train_seconds = model.fit (ETS / NN training); "
-            "predict_seconds = one-step walk-forward over test week; "
+            "predict_seconds = one-step-ahead over test week (true history in each window); "
             "recorded via time.perf_counter() on local machine."
         ),
         "rows": timing_rows,

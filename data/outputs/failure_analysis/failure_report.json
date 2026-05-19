@@ -32,65 +32,65 @@
     {
       "model": "lstm",
       "square_id": 4159,
-      "worst_window_start": "2013-12-17 10:10:00+00:00",
-      "worst_window_end": "2013-12-17 16:00:00+00:00",
-      "window_mae": 240.61074240293328,
-      "peak_abs_error": 306.5394981490279,
-      "overall_mae": 101.6405684673448
+      "worst_window_start": "2013-12-18 08:50:00+00:00",
+      "worst_window_end": "2013-12-18 14:40:00+00:00",
+      "window_mae": 31.773358023961165,
+      "peak_abs_error": 122.04980233232024,
+      "overall_mae": 15.993610684355787
     },
     {
       "model": "lstm",
       "square_id": 4556,
-      "worst_window_start": "2013-12-22 02:30:00+00:00",
-      "worst_window_end": "2013-12-22 08:20:00+00:00",
-      "window_mae": 317.0154396071383,
-      "peak_abs_error": 428.97292047993847,
-      "overall_mae": 135.1698781493241
+      "worst_window_start": "2013-12-17 17:50:00+00:00",
+      "worst_window_end": "2013-12-17 23:40:00+00:00",
+      "window_mae": 49.351816003908326,
+      "peak_abs_error": 258.82022335619746,
+      "overall_mae": 32.04413311124606
     },
     {
       "model": "lstm",
       "square_id": 5161,
-      "worst_window_start": "2013-12-21 00:30:00+00:00",
-      "worst_window_end": "2013-12-21 06:20:00+00:00",
-      "window_mae": 2351.6629191910315,
-      "peak_abs_error": 2953.0898909020166,
-      "overall_mae": 1472.2899793792415
+      "worst_window_start": "2013-12-17 13:20:00+00:00",
+      "worst_window_end": "2013-12-17 19:10:00+00:00",
+      "window_mae": 255.40793804365947,
+      "peak_abs_error": 604.7648294292035,
+      "overall_mae": 107.13759514639472
     },
     {
       "model": "tcn",
       "square_id": 4159,
-      "worst_window_start": "2013-12-16 09:40:00+00:00",
-      "worst_window_end": "2013-12-16 15:30:00+00:00",
-      "window_mae": 268.77099117020765,
-      "peak_abs_error": 337.1616620485962,
-      "overall_mae": 100.97801609530576
+      "worst_window_start": "2013-12-18 09:00:00+00:00",
+      "worst_window_end": "2013-12-18 14:50:00+00:00",
+      "window_mae": 28.00088134182989,
+      "peak_abs_error": 119.79001890767135,
+      "overall_mae": 15.657399302607045
     },
     {
       "model": "tcn",
       "square_id": 4556,
-      "worst_window_start": "2013-12-22 02:30:00+00:00",
-      "worst_window_end": "2013-12-22 08:20:00+00:00",
-      "window_mae": 444.2071874708195,
-      "peak_abs_error": 497.4966136386255,
-      "overall_mae": 198.88262942388067
+      "worst_window_start": "2013-12-18 15:30:00+00:00",
+      "worst_window_end": "2013-12-18 21:20:00+00:00",
+      "window_mae": 45.84519554160874,
+      "peak_abs_error": 302.1329715476701,
+      "overall_mae": 28.117668333010453
     },
     {
       "model": "tcn",
       "square_id": 5161,
-      "worst_window_start": "2013-12-21 11:30:00+00:00",
-      "worst_window_end": "2013-12-21 17:20:00+00:00",
-      "window_mae": 7916.346504118709,
-      "peak_abs_error": 9052.981850024436,
-      "overall_mae": 4749.3146673536285
+      "worst_window_start": "2013-12-22 12:30:00+00:00",
+      "worst_window_end": "2013-12-22 18:20:00+00:00",
+      "window_mae": 187.15519577307361,
+      "peak_abs_error": 532.8787956282135,
+      "overall_mae": 90.11412220374993
     }
   ],
   "overall_worst": {
-    "model": "tcn",
+    "model": "ets",
     "square_id": 5161,
-    "worst_window_start": "2013-12-21 11:30:00+00:00",
-    "worst_window_end": "2013-12-21 17:20:00+00:00",
-    "window_mae": 7916.346504118709,
-    "peak_abs_error": 9052.981850024436,
-    "overall_mae": 4749.3146673536285
+    "worst_window_start": "2013-12-16 12:50:00+00:00",
+    "worst_window_end": "2013-12-16 18:40:00+00:00",
+    "window_mae": 1135.499712866823,
+    "peak_abs_error": 1544.4750801582668,
+    "overall_mae": 310.08037461121353
   }
 }

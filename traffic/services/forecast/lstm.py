@@ -9,6 +9,7 @@ from traffic.services.forecast.base import BaseForecaster, ForecastResult
 from traffic.services.forecast.training import (
     build_sequence_loaders,
     get_torch_device,
+    one_step_ahead_predict,
     save_training_curve,
     train_epochs,
 )
@@ -121,7 +122,9 @@ class LstmForecaster(BaseForecaster):
         train_seconds = time.perf_counter() - t0
 
         t1 = time.perf_counter()
-        preds = self._walk_forward_predict(model, scaled, test, device)
+        preds = one_step_ahead_predict(
+            model, self.scaler, scaled, test, self.seq_len, device
+        )
         predict_seconds = time.perf_counter() - t1
 
         if save_curve and curve_dir is not None and square_id is not None:
@@ -147,21 +150,3 @@ class LstmForecaster(BaseForecaster):
 
     def _param_suffix(self) -> str:
         return f"h{self.hidden}_e{self.epochs}_s{self.seq_len}"
-
-    def _walk_forward_predict(
-        self, model: nn.Module, scaled_train: np.ndarray, test: pd.Series, device
-    ) -> np.ndarray:
-        model.eval()
-        history = list(scaled_train)
-        preds_scaled = []
-        with torch.no_grad():
-            for _ in range(len(test)):
-                window = torch.tensor(
-                    history[-self.seq_len :], dtype=torch.float32
-                ).view(1, self.seq_len, 1)
-                pred = model(window.to(device)).item()
-                preds_scaled.append(pred)
-                history.append(pred)
-        return self.scaler.inverse_transform(
-            np.array(preds_scaled).reshape(-1, 1)
-        ).flatten()

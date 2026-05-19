@@ -25,47 +25,47 @@ Sliding window: 36 × 10-min intervals.
 - See: `worst_window_ets_square_5161.png`
 
 ### LSTM — square 4159
-- Worst window: **2013-12-17 10:10:00+00:00** → **2013-12-17 16:00:00+00:00**
-- Window MAE: **240.6107**
-- Peak absolute error: **306.5395**
+- Worst window: **2013-12-18 08:50:00+00:00** → **2013-12-18 14:40:00+00:00**
+- Window MAE: **31.7734**
+- Peak absolute error: **122.0498**
 - See: `worst_window_lstm_square_4159.png`
 
 ### LSTM — square 4556
-- Worst window: **2013-12-22 02:30:00+00:00** → **2013-12-22 08:20:00+00:00**
-- Window MAE: **317.0154**
-- Peak absolute error: **428.9729**
+- Worst window: **2013-12-17 17:50:00+00:00** → **2013-12-17 23:40:00+00:00**
+- Window MAE: **49.3518**
+- Peak absolute error: **258.8202**
 - See: `worst_window_lstm_square_4556.png`
 
 ### LSTM — square 5161
-- Worst window: **2013-12-21 00:30:00+00:00** → **2013-12-21 06:20:00+00:00**
-- Window MAE: **2351.6629**
-- Peak absolute error: **2953.0899**
+- Worst window: **2013-12-17 13:20:00+00:00** → **2013-12-17 19:10:00+00:00**
+- Window MAE: **255.4079**
+- Peak absolute error: **604.7648**
 - See: `worst_window_lstm_square_5161.png`
 
 ### TCN — square 4159
-- Worst window: **2013-12-16 09:40:00+00:00** → **2013-12-16 15:30:00+00:00**
-- Window MAE: **268.7710**
-- Peak absolute error: **337.1617**
+- Worst window: **2013-12-18 09:00:00+00:00** → **2013-12-18 14:50:00+00:00**
+- Window MAE: **28.0009**
+- Peak absolute error: **119.7900**
 - See: `worst_window_tcn_square_4159.png`
 
 ### TCN — square 4556
-- Worst window: **2013-12-22 02:30:00+00:00** → **2013-12-22 08:20:00+00:00**
-- Window MAE: **444.2072**
-- Peak absolute error: **497.4966**
+- Worst window: **2013-12-18 15:30:00+00:00** → **2013-12-18 21:20:00+00:00**
+- Window MAE: **45.8452**
+- Peak absolute error: **302.1330**
 - See: `worst_window_tcn_square_4556.png`
 
 ### TCN — square 5161
-- Worst window: **2013-12-21 11:30:00+00:00** → **2013-12-21 17:20:00+00:00**
-- Window MAE: **7916.3465**
-- Peak absolute error: **9052.9819**
+- Worst window: **2013-12-22 12:30:00+00:00** → **2013-12-22 18:20:00+00:00**
+- Window MAE: **187.1552**
+- Peak absolute error: **532.8788**
 - See: `worst_window_tcn_square_5161.png`
 
 ## Suggested focus for report
 
-Largest sustained error: **TCN** on square **5161** during **2013-12-21 11:30:00+00:00** – **2013-12-21 17:20:00+00:00**.
+Largest sustained error: **ETS** on square **5161** during **2013-12-16 12:50:00+00:00** – **2013-12-16 18:40:00+00:00**.
 
 Possible causes to discuss (link to Task 2):
 - Pre-holiday traffic surge (mid-December).
-- Model lag on sharp ramps (neural nets using recursive preds).
+- Model lag on sharp ramps or holiday surges (one-step-ahead NNs vs ETS seasonality).
 - Non-stationarity / weekend vs weekday pattern shift.
 - Single-square idiosyncrasy vs city-wide events.

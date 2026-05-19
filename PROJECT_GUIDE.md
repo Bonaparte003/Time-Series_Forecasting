@@ -60,8 +60,8 @@ traffic/
     failure_analysis.py          Worst windows + residuals
     forecast/
       ets.py                   Holt–Winters
-      lstm.py                  LSTM + walk-forward predict
-      tcn.py                   TCN + walk-forward predict
+      lstm.py                  LSTM + one-step-ahead predict
+      tcn.py                   TCN + one-step-ahead predict
       training.py              Early stopping, epoch metrics
   management/commands/         CLI entry points
 docs/images/                   Committed figures (mirrors key outputs)
@@ -156,7 +156,7 @@ python manage.py run_experiments --quick    # smaller grid
 | Model | Multi-step approach |
 |-------|---------------------|
 | **ETS** | Single `forecast(1008)` with daily seasonality (period 144) |
-| **LSTM / TCN** | **Recursive** walk-forward: each prediction fed into the next step |
+| **LSTM / TCN** | **One-step-ahead:** at each test time, window = true train + true test history up to \(t\); predict \(t+1\) |
 
 **Outputs**
 
@@ -190,15 +190,15 @@ Gallery: `docs/images/failure/`
 - **Input:** last `seq_len` scaled values (MinMax on train)
 - **Architecture:** 2-layer LSTM → linear head
 - **Training:** Adam, MSE; **early stopping** on last 144 sequences of train; restore best weights
-- **Inference:** recursive 1,008-step forecast on test week
+- **Inference:** one-step-ahead on test week (1,008 steps; true history in each window)
 
 ### TCN
 
 - Same preprocessing and early stopping as LSTM.
 - Dilated causal conv blocks → linear head.
-- Same recursive inference.
+- Same one-step-ahead inference as LSTM.
 
-**Report tip:** Assignment wording mentions one-step-ahead; this project evaluates **full-week** forecasts. State that explicitly and discuss error compounding for NNs vs ETS’s direct seasonal forecast.
+**Report tip:** ETS uses a single `forecast(1008)` from the end of training; NNs use stepwise one-step-ahead with true test history in each window. State both in §VII when comparing models.
 
 ---
 

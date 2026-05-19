@@ -9,6 +9,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
@@ -58,6 +59,43 @@ def _align_target_shape(pred: torch.Tensor, yb: torch.Tensor) -> torch.Tensor:
     if pred.shape != yb.shape:
         return pred.squeeze(-1)
     return pred
+
+
+def _prediction_scalar(pred: torch.Tensor) -> float:
+    """Single-step model output → float (handles LSTM (1,1) and TCN (1,))."""
+    return float(pred.reshape(-1)[0].item())
+
+
+@torch.no_grad()
+def one_step_ahead_predict(
+    model: nn.Module,
+    scaler,
+    scaled_train: np.ndarray,
+    test: pd.Series,
+    seq_len: int,
+    device: torch.device,
+) -> np.ndarray:
+    """
+  One-step-ahead on the test week (assignment Task 3).
+
+  At each test time t, the input window uses true scaled traffic up to and
+  including t; the model predicts the value at t+1 (stored as test[t]).
+  """
+    model.eval()
+    test_scaled = scaler.transform(test.values.reshape(-1, 1)).flatten()
+    history = list(scaled_train)
+    preds_scaled: list[float] = []
+
+    for i in range(len(test)):
+        window = torch.tensor(
+            history[-seq_len:], dtype=torch.float32, device=device
+        ).view(1, seq_len, 1)
+        preds_scaled.append(_prediction_scalar(model(window)))
+        history.append(test_scaled[i])
+
+    return scaler.inverse_transform(
+        np.array(preds_scaled, dtype=float).reshape(-1, 1)
+    ).flatten()
 
 
 @torch.no_grad()
