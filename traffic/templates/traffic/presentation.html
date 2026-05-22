@@ -13,17 +13,59 @@
     <p class="brand">Milan traffic</p>
     <h1>{{ title }}</h1>
     <ol class="deck-index">
+      <li><a href="#introduction" class="deck-index-link">Introduction</a></li>
       {% for step in overview_journey %}
-      <li><span class="deck-index-num">{{ step.step }}</span> {{ step.phase }}</li>
+      <li>
+        <a href="#chapter-{{ step.id }}" class="deck-index-link">
+          <span class="deck-index-num">{{ step.step }}</span> {{ step.phase }}
+        </a>
+      </li>
       {% endfor %}
+      <li><a href="#conclusion" class="deck-index-link">Conclusion</a></li>
     </ol>
   </aside>
 
   <main class="main">
-    <header class="deck-intro">
-      <h2 class="deck-title">{{ subtitle }}</h2>
-      <p class="deck-meta">Squares 5161 · 4159 · 4556</p>
-    </header>
+    <section class="intro-section" id="introduction">
+      <header class="intro-header">
+        <p class="intro-eyebrow">{{ subtitle }}</p>
+        <h2 class="intro-headline">{{ introduction.headline }}</h2>
+        <p class="intro-tagline">{{ introduction.tagline }}</p>
+      </header>
+      <div class="intro-body">
+        <div class="intro-copy">
+          {% for paragraph in introduction.paragraphs %}
+          <p>{{ paragraph }}</p>
+          {% endfor %}
+          <dl class="intro-highlights">
+            {% for item in introduction.highlights %}
+            <div class="intro-highlight">
+              <dt>{{ item.label }}</dt>
+              <dd>{{ item.value }}</dd>
+            </div>
+            {% endfor %}
+          </dl>
+          <p class="intro-source">
+            Dataset:
+            <a href="{{ introduction.dataset_url }}" target="_blank" rel="noopener noreferrer">
+              {{ introduction.dataset_label }}
+            </a>
+          </p>
+        </div>
+        <figure class="intro-figure">
+          {% if introduction.figure.url %}
+          <img
+            src="{{ introduction.figure.url }}"
+            alt="{{ introduction.figure.title }}"
+            loading="eager"
+          >
+          {% else %}
+          <div class="deck-missing">Image unavailable — run pipeline or check docs/images</div>
+          {% endif %}
+          <figcaption>{{ introduction.figure.title }}</figcaption>
+        </figure>
+      </div>
+    </section>
 
     <div class="deck-flow">
       {% for step in overview_journey %}
@@ -101,6 +143,74 @@
       </article>
       {% endfor %}
     </div>
+
+    <section class="conclusion-section" id="conclusion">
+      <header class="conclusion-header">
+        <p class="conclusion-eyebrow">Test week · 16–22 Dec 2013</p>
+        <h2 class="conclusion-headline">{{ conclusion.headline }}</h2>
+        <p class="conclusion-verdict">{{ conclusion.verdict }}</p>
+        <p class="conclusion-metric-note">{{ conclusion.metric_note }}</p>
+      </header>
+      <div class="conclusion-body">
+        <div class="conclusion-copy">
+          {% for paragraph in conclusion.paragraphs %}
+          <p>{{ paragraph }}</p>
+          {% endfor %}
+
+          <h3 class="conclusion-sub">Results by square (MAE ↓ wins)</h3>
+          <div class="conclusion-tables">
+            {% for block in conclusion.by_square %}
+            <div class="conclusion-square-block">
+              <h4 class="conclusion-square-title">
+                Square {{ block.square_id }}
+                <span class="conclusion-winner-badge">{{ block.winner_label }}</span>
+              </h4>
+              <table class="conclusion-metrics">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>MAE</th>
+                    <th>MAPE %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in block.rows %}
+                  <tr class="{% if row.is_winner %}is-winner{% endif %}">
+                    <td>{{ row.label }}</td>
+                    <td>{% if row.mae is not None %}{{ row.mae }}{% else %}—{% endif %}</td>
+                    <td>{% if row.mape is not None %}{{ row.mape }}{% else %}—{% endif %}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endfor %}
+          </div>
+
+          <h3 class="conclusion-sub">Why the winner?</h3>
+          <ul class="conclusion-reasons">
+            {% for reason in conclusion.reasons %}
+            <li>
+              <strong>{{ reason.title }}</strong>
+              {{ reason.text }}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        <figure class="conclusion-figure">
+          {% if conclusion.figure.url %}
+          <img
+            src="{{ conclusion.figure.url }}"
+            alt="{{ conclusion.figure.title }}"
+            loading="lazy"
+          >
+          {% else %}
+          <div class="deck-missing">Image unavailable — run forecast or check docs/images</div>
+          {% endif %}
+          <figcaption>{{ conclusion.figure.title }}</figcaption>
+        </figure>
+      </div>
+    </section>
   </main>
 </div>
 

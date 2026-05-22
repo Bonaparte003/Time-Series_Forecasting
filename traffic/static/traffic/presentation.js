@@ -13,7 +13,7 @@
   /* Image lightbox */
   const lb = $("#lightbox");
   const lbImg = $("#lightbox-img");
-  $$(".deck-fig img").forEach((img) => {
+  $$(".deck-fig img, .intro-figure img, .conclusion-figure img").forEach((img) => {
     img.addEventListener("click", (e) => {
       e.preventDefault();
       lbImg.src = img.src;

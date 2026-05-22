@@ -105,15 +105,52 @@ def plot_acf_pacf(series: pd.Series, square_id: int) -> Path:
     return out
 
 
-def plot_spatial_heatmap(df: pd.DataFrame) -> Path:
+def _square_grid_coords(square_id: int) -> tuple[int, int]:
+    """Map TIM square id (1–10000) to 0-based (row, column) on the 100×100 grid."""
+    return divmod(int(square_id) - 1, 100)
+
+
+# Star colors for target squares (5161 = top traffic, 4159/4556 = fixed study areas).
+_HIGHLIGHT_STAR_STYLES: dict[int, dict] = {
+    5161: {"color": "#1a1a1a", "edgecolors": "#ffffff", "label": "5161"},
+    4159: {"color": "#2c4a6e", "edgecolors": "#ffffff", "label": "4159"},
+    4556: {"color": "#8b4513", "edgecolors": "#ffffff", "label": "4556"},
+}
+
+
+def plot_spatial_heatmap(
+    df: pd.DataFrame,
+    highlight_squares: list[int] | None = None,
+) -> Path:
     totals = df.groupby("square_id")["internet_traffic"].sum()
     grid = np.zeros((100, 100))
     for sid, val in totals.items():
-        r, c = divmod(int(sid) - 1, 100)
+        r, c = _square_grid_coords(sid)
         if 0 <= r < 100 and 0 <= c < 100:
             grid[r, c] = val
     fig, ax = plt.subplots(figsize=(8, 7))
     im = ax.imshow(grid, aspect="auto", cmap="YlOrRd")
+    for sid in highlight_squares or []:
+        r, c = _square_grid_coords(sid)
+        if not (0 <= r < 100 and 0 <= c < 100):
+            continue
+        style = _HIGHLIGHT_STAR_STYLES.get(
+            int(sid),
+            {"color": "#1a1a1a", "edgecolors": "#ffffff", "label": str(sid)},
+        )
+        ax.scatter(
+            c,
+            r,
+            marker="*",
+            s=420,
+            c=style["color"],
+            edgecolors=style["edgecolors"],
+            linewidths=1.4,
+            zorder=5,
+            label=style["label"],
+        )
+    if highlight_squares:
+        ax.legend(loc="upper right", fontsize=8, framealpha=0.92, title="Target squares")
     ax.set_title("Spatial heatmap — total two-month traffic")
     ax.set_xlabel("Grid column")
     ax.set_ylabel("Grid row")
@@ -140,7 +177,7 @@ def run_eda(log: LogFn = None) -> list[Path]:
     steps = [
         ("traffic PDF / histogram", lambda: plot_traffic_pdf(df)),
         ("three areas — two weeks", lambda: plot_three_areas_two_weeks(series_map)),
-        ("spatial heatmap", lambda: plot_spatial_heatmap(df)),
+        ("spatial heatmap", lambda: plot_spatial_heatmap(df, highlight_squares=targets)),
     ]
     for label, fn in steps:
         if log:
