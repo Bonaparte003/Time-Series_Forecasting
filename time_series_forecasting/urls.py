@@ -5,7 +5,8 @@ from django.urls import path
 from traffic import views
 
 urlpatterns = [
-    path("", views.index, name="index"),
-    path("guide/", views.project_guide, name="project_guide"),
+    path("", views.presentation, name="presentation"),
+    path("api/experiments/", views.api_experiments, name="api_experiments"),
     path("outputs/<path:filepath>", views.serve_output, name="serve_output"),
+    path("docs-images/<path:filepath>", views.serve_doc_image, name="serve_doc_image"),
 ]

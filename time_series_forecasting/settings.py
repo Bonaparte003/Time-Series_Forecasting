@@ -35,6 +35,19 @@ LANGUAGE_CODE = "en-us"
 
 STATIC_URL = "static/"
 
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+            ],
+        },
+    },
+]
+
 # --- Project-specific paths ---
 RAW_DATA_GLOB = "dataverse_files*/sms-call-internet-mi-*.txt"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"

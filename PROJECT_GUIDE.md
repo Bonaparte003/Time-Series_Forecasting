@@ -2,7 +2,7 @@
 
 End-to-end guide for the **Formative 1** codebase: what each component does, how data flows, and how outputs map to the assignment PDF.
 
-**See also:** [README.md](README.md) (quick start + results gallery)
+**See also:** [README.md](README.md) (quick start + results gallery) · [docs/METHODS.md](docs/METHODS.md) (models & evaluation) · [docs/DIRECTORY_REFERENCE.md](docs/DIRECTORY_REFERENCE.md) (paths & artifacts)
 
 ---
 
@@ -50,7 +50,7 @@ flowchart LR
 time_series_forecasting/       Django project (settings, URLs, splits, grids)
 traffic/
   models.py                    SQLite: ExperimentRun, ForecastRun
-  views.py                     Web dashboard + /guide/
+  views.py                     Presentation UI + static figure serving
   services/
     loader.py                  Chunked raw ingest (Task 1)
     etl.py                     10-min series per square
@@ -64,10 +64,15 @@ traffic/
       tcn.py                   TCN + one-step-ahead predict
       training.py              Early stopping, epoch metrics
   management/commands/         CLI entry points
-docs/images/                   Committed figures (mirrors key outputs)
+docs/
+  METHODS.md                   Task 3 methodology (models, splits, metrics)
+  DIRECTORY_REFERENCE.md       Full tree of inputs/outputs & CLI map
+  images/                      Committed figures (mirrors key outputs)
 data/processed/                Generated at runtime
 data/outputs/                  Generated at runtime (gitignored)
 ```
+
+For file-level detail see **[docs/DIRECTORY_REFERENCE.md](docs/DIRECTORY_REFERENCE.md)**. For model math and inference see **[docs/METHODS.md](docs/METHODS.md)**.
 
 ---
 
@@ -179,32 +184,23 @@ Gallery: `docs/images/failure/`
 
 ## Models (for Task 3 write-up)
 
-### ETS (Holt–Winters)
+Full methodology (formulas, code map, comparison table): **[docs/METHODS.md](docs/METHODS.md)**.
 
-- **Library:** `statsmodels.tsa.holtwinters.ExponentialSmoothing`
-- **Seasonality:** additive, period **144** (24 h at 10-min steps)
-- **Tuning:** `trend` ∈ {None, add}, `damped_trend` ∈ {false, true}
+**Summary**
 
-### LSTM
+| Model | Train | Test inference |
+|-------|-------|----------------|
+| **ETS** | Holt–Winters on pre-test series | `forecast(1008)` from train end |
+| **LSTM** | 2-layer LSTM, MinMax, early stopping | One-step-ahead with true test history |
+| **TCN** | Dilated TCN blocks, same training setup | Same as LSTM |
 
-- **Input:** last `seq_len` scaled values (MinMax on train)
-- **Architecture:** 2-layer LSTM → linear head
-- **Training:** Adam, MSE; **early stopping** on last 144 sequences of train; restore best weights
-- **Inference:** one-step-ahead on test week (1,008 steps; true history in each window)
-
-### TCN
-
-- Same preprocessing and early stopping as LSTM.
-- Dilated causal conv blocks → linear head.
-- Same one-step-ahead inference as LSTM.
-
-**Report tip:** ETS uses a single `forecast(1008)` from the end of training; NNs use stepwise one-step-ahead with true test history in each window. State both in §VII when comparing models.
+**Report tip:** ETS and NNs use different test protocols; state both in §VII. Assignment wording is one-step-ahead — NNs match that; ETS is a direct multi-step seasonal forecast.
 
 ---
 
 ## Test-week results (reference)
 
-Use these in your PDF tables (from `metrics_summary.json` / `timing_table.csv`).
+Use these in your PDF tables (from `metrics_summary.json` / `timing_table.csv`). One-step-ahead evaluation for NNs.
 
 <details>
 <summary>Square 5161 — MAE / MAPE / RMSE</summary>
@@ -212,8 +208,8 @@ Use these in your PDF tables (from `metrics_summary.json` / `timing_table.csv`).
 | Model | MAE | MAPE % | RMSE |
 |-------|----:|-------:|-----:|
 | ETS | 310.1 | 26.1 | 470.0 |
-| LSTM | 1472.3 | 459.8 | 1678.0 |
-| TCN | 4749.3 | 858.8 | 5037.2 |
+| LSTM | 107.1 | 10.8 | 159.3 |
+| TCN | 90.1 | 9.4 | 130.3 |
 
 </details>
 
@@ -223,8 +219,8 @@ Use these in your PDF tables (from `metrics_summary.json` / `timing_table.csv`).
 | Model | MAE | MAPE % | RMSE |
 |-------|----:|-------:|-----:|
 | ETS | 64.8 | 28.1 | 85.7 |
-| TCN | 101.0 | 39.3 | 132.6 |
-| LSTM | 101.6 | 46.5 | 122.8 |
+| LSTM | 16.0 | 7.4 | 21.3 |
+| TCN | 15.7 | 6.7 | 21.3 |
 
 </details>
 
@@ -233,9 +229,9 @@ Use these in your PDF tables (from `metrics_summary.json` / `timing_table.csv`).
 
 | Model | MAE | MAPE % | RMSE |
 |-------|----:|-------:|-----:|
-| LSTM | 135.2 | 42.2 | 169.4 |
+| TCN | 28.1 | 6.5 | 37.7 |
+| LSTM | 32.0 | 7.9 | 41.0 |
 | ETS | 176.1 | 48.6 | 196.0 |
-| TCN | 198.9 | 63.5 | 236.2 |
 
 </details>
 
@@ -249,7 +245,7 @@ Use these in your PDF tables (from `metrics_summary.json` / `timing_table.csv`).
 |-------------|----------------|
 | Task 1 memory | `ingest_report.json` + your discussion |
 | Task 2 figures | `data/outputs/eda/` · `docs/images/eda/` |
-| Task 3 design | This guide + `traffic/services/forecast/` |
+| Task 3 design | [docs/METHODS.md](docs/METHODS.md) + `traffic/services/forecast/` |
 | Task 3 plots (×9) | `data/outputs/forecast/` · `docs/images/forecast/` |
 | Task 3 tables (×3) | `metrics_square_*.csv` |
 | Timing + hardware | `timing_table.csv`, `hardware_environment.json` |
@@ -267,8 +263,12 @@ python manage.py runserver
 
 | URL | Content |
 |-----|---------|
-| http://127.0.0.1:8000/ | Dashboard — all generated PNGs |
-| http://127.0.0.1:8000/guide/ | Rendered copy of this guide |
+| http://127.0.0.1:8000/ | Presentation — tasks, figures, metrics, SQLite explorer |
+| http://127.0.0.1:8000/api/experiments/ | JSON filter for `ExperimentRun` (model, phase) |
+| http://127.0.0.1:8000/outputs/… | PNG/JSON from `data/outputs/` |
+| http://127.0.0.1:8000/docs-images/… | Fallback PNGs from `docs/images/` |
+
+Markdown docs ([METHODS.md](docs/METHODS.md), [DIRECTORY_REFERENCE.md](docs/DIRECTORY_REFERENCE.md), this guide) are read in the repo, not rendered in the browser.
 
 ---
 
@@ -300,4 +300,4 @@ python manage.py runserver
 
 ## AI / integrity
 
-Document AI tool use in the PDF. Be prepared to explain: chunk ingest, date splits, why ETS outperforms NNs on square 5161, and early stopping on a train holdout (not the validation week).
+Document AI tool use in the PDF. Be prepared to explain: chunk ingest, date splits, one-step-ahead vs ETS `forecast(1008)`, why metrics differ by square, and early stopping on a train holdout (not the validation week).

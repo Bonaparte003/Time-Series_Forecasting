@@ -1,0 +1,301 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="{% static 'traffic/presentation.css' %}">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <p class="brand">Milan traffic</p>
+    <h1>{{ title }}</h1>
+    <nav>
+      <a href="#overview">Overview</a>
+      <a href="#database">SQLite</a>
+      <a href="#dataset">Dataset</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#task1">Task 1</a>
+      <a href="#task2">Task 2</a>
+      <a href="#task3">Task 3</a>
+      <a href="#metrics">Metrics</a>
+      <a href="#experiments">Experiments</a>
+      <a href="#failure">Failure</a>
+      <a href="#code">Code</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="page-head" id="overview">
+      <h2 style="font-size:1.35rem;font-weight:600;letter-spacing:-0.03em;margin:0;color:var(--text);text-transform:none;">{{ subtitle }}</h2>
+      <p>Squares {{ top_square_id }}, 4159, 4556 · test week 16–22 Dec 2013 · ETS + LSTM + TCN</p>
+    </header>
+
+    <section id="database">
+      <h2>SQLite</h2>
+      <div class="panel">
+        <p class="path">{{ db.db_path }}</p>
+        <div class="chips">
+          <span class="chip"><strong>{{ db.counts.ingestion }}</strong> ingest runs</span>
+          <span class="chip"><strong>{{ db.counts.experiment }}</strong> experiments</span>
+          <span class="chip"><strong>{{ db.counts.forecast }}</strong> forecast results</span>
+        </div>
+        {% if not db.has_data %}
+        <p class="note">Empty database — run the pipeline to populate <code>db.sqlite3</code>.</p>
+        {% endif %}
+      </div>
+
+      {% if db.best_per_model %}
+      <div class="panel">
+        <h3>Best validation MAE (ORM)</h3>
+        <table>
+          <thead><tr><th>Model</th><th>Best val MAE</th></tr></thead>
+          <tbody>
+            {% for row in db.best_per_model %}
+            <tr>
+              <td>{{ row.model_name|upper }}</td>
+              <td>{{ row.best_val_mae|floatformat:1 }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      <div class="snippet-grid">
+        {% for snip in orm_snippets %}
+        <div class="panel">
+          <pre class="code"><span class="label">{{ snip.title }}</span>{{ snip.code }}</pre>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="dataset">
+      <h2>Dataset</h2>
+      <div class="panel">
+        <p>10,000 grid cells · 10-minute CDR traffic · two months (TIM Milan).</p>
+        <div class="splits">
+          {% for s in splits %}
+          <div class="row">
+            <strong>{{ s.name }}</strong>
+            <span>{{ s.range }} — {{ s.use }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section id="pipeline">
+      <h2>Pipeline</h2>
+      <div class="panel">
+        <ul class="pipeline">
+          {% for step in pipeline %}
+          <li>
+            <code>{{ step.cmd }}</code>
+            <span class="path">{{ step.file }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+
+    <section id="task1">
+      <h2>Task 1 — Memory</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="val">{{ ingest.memory_before_mb|floatformat:2 }}</div>
+          <div class="lbl">MB before</div>
+        </div>
+        <div class="stat">
+          <div class="val">{{ ingest.memory_after_mb|floatformat:2 }}</div>
+          <div class="lbl">MB after</div>
+        </div>
+        <div class="stat">
+          <div class="val">{{ ingest.files_processed|default:"—" }}</div>
+          <div class="lbl">Files</div>
+        </div>
+        <div class="stat">
+          <div class="val">{% if ingest.rows_written %}{{ ingest.rows_written|floatformat:0 }}{% else %}—{% endif %}</div>
+          <div class="lbl">Rows</div>
+        </div>
+      </div>
+      <div class="panel">
+        <p>Chunked ingest → daily Parquet · dtype compression</p>
+        {% if ingest.from_db %}
+        <p class="note">From <code>IngestionRun</code> #{{ ingest.run_id }} in SQLite</p>
+        {% else %}
+        <p class="path">{{ artifact_paths.ingest_report }}</p>
+        {% endif %}
+        {% if hardware %}
+        <p class="note">{{ hardware.platform }}</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section id="task2">
+      <h2>Task 2 — EDA</h2>
+      <div class="eda-stack">
+        {% for fig in eda_figures %}
+        <div class="panel">
+          <h3>{{ fig.title }}</h3>
+          {% if fig.url %}
+          <figure>
+            <img src="{{ fig.url }}" alt="{{ fig.title }}" loading="lazy">
+            <figcaption>{{ fig.file }}</figcaption>
+          </figure>
+          {% else %}
+          <p class="note">Run <code>run_eda</code></p>
+          {% endif %}
+          <p class="note">{{ fig.talk }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="task3">
+      <h2>Task 3 — Models</h2>
+      {% for m in models_info %}
+      <div class="panel">
+        <h3>{{ m.name }}</h3>
+        <p class="path">{{ m.file }}</p>
+        <p class="note">{{ m.inference }}</p>
+      </div>
+      {% endfor %}
+
+      <h2 style="margin-top:2rem;">Forecasts</h2>
+      <div data-tab-group="forecasts" class="tabs">
+        {% for sq in squares %}
+        <button type="button" class="tab{% if forloop.first %} is-active{% endif %}" data-tab-group="forecasts" data-tab="{{ sq }}">Square {{ sq }}</button>
+        {% endfor %}
+      </div>
+      <div class="plot-grid">
+        {% for plot in forecast_plots %}
+        <div class="panel plot-card" data-square="{{ plot.square_id }}">
+          <h3>{{ plot.label }}</h3>
+          {% if plot.url %}
+          <figure><img src="{{ plot.url }}" alt="{{ plot.title }}" loading="lazy"></figure>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="metrics">
+      <h2>Metrics</h2>
+      {% if metrics_tables %}
+      <div data-tab-group="metrics" class="tabs">
+        {% for table in metrics_tables %}
+        <button type="button" class="tab{% if forloop.first %} is-active{% endif %}" data-tab-group="metrics" data-tab="{{ table.square_id }}">{{ table.square_id }}</button>
+        {% endfor %}
+      </div>
+      {% for table in metrics_tables %}
+      <div class="panel tab-panel{% if forloop.first %} is-active{% endif %}" data-tab-panel="metrics" data-tab-id="{{ table.square_id }}">
+        <h3>Square {{ table.square_id }}
+          {% if table.source == "sqlite" %}<span class="source-tag">sqlite</span>{% endif %}
+        </h3>
+        <table>
+          <thead>
+            <tr><th>Model</th><th>MAE</th><th>MAPE</th><th>RMSE</th><th>Train</th><th>Predict</th></tr>
+          </thead>
+          <tbody>
+            {% for row in table.rows %}
+            <tr{% if row.best %} class="best"{% endif %}>
+              <td>{{ row.model }}</td>
+              <td>{{ row.mae }}</td>
+              <td>{{ row.mape }}%</td>
+              <td>{{ row.rmse }}</td>
+              <td>{{ row.train_s }}s</td>
+              <td>{{ row.predict_s }}s</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="panel"><p class="note">Run <code>run_forecast</code> — results stored in <code>ForecastRun</code></p></div>
+      {% endif %}
+    </section>
+
+    <section id="experiments">
+      <h2>Experiments</h2>
+      <div class="panel">
+        <p>Hyperparameter search on square 5161 (validation week). Filter live from SQLite.</p>
+        <div class="filters">
+          <label>Model
+            <select id="filter-model">
+              <option value="">All</option>
+              <option value="ets">ETS</option>
+              <option value="lstm">LSTM</option>
+              <option value="tcn">TCN</option>
+            </select>
+          </label>
+          <label>Phase
+            <select id="filter-phase">
+              <option value="">All</option>
+              <option value="1">1 — baseline</option>
+              <option value="2">2 — grid</option>
+            </select>
+          </label>
+        </div>
+        <div id="exp-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Ph</th><th>Model</th><th>Val MAE</th><th>MAPE</th><th>Train</th>
+              </tr>
+            </thead>
+            <tbody id="exp-tbody">
+              {% for row in experiments_preview %}
+              <tr>
+                <td>{{ row.id }}</td>
+                <td>{{ row.phase }}</td>
+                <td>{{ row.model }}</td>
+                <td>{{ row.val_mae }}</td>
+                <td>{{ row.val_mape }}%</td>
+                <td>{{ row.train_s }}s</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p id="exp-status" class="note"></p>
+      </div>
+    </section>
+
+    <section id="failure">
+      <h2>Failure analysis</h2>
+      <div class="plot-grid">
+        {% for f in failure_samples %}
+        <div class="panel">
+          <h3>{{ f.model }} · {{ f.square }}</h3>
+          <p class="note">{{ f.window }}</p>
+          {% if f.url %}
+          <figure><img src="{{ f.url }}" alt="" loading="lazy"></figure>
+          {% endif %}
+          <p class="note">{{ f.note }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>Implementation</h2>
+      {% for snip in snippets %}
+      <div class="panel">
+        <pre class="code"><span class="label">{{ snip.file }} · {{ snip.lines }}</span>{{ snip.code }}</pre>
+      </div>
+      {% endfor %}
+    </section>
+  </div>
+</div>
+
+<div id="lightbox" class="lightbox" aria-hidden="true">
+  <img id="lightbox-img" alt="">
+</div>
+<script src="{% static 'traffic/presentation.js' %}"></script>
+</body>
+</html>
