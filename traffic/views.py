@@ -1,3 +1,4 @@
+import csv
 from pathlib import Path
 
 from django.conf import settings
@@ -33,7 +34,13 @@ def serve_output(request, filepath: str):
     target = _safe_output_path(filepath)
     if not target.is_file():
         raise Http404("File not found")
-    content_types = {".png": "image/png", ".json": "application/json"}
+    content_types = {
+        ".png": "image/png",
+        ".json": "application/json",
+        ".csv": "text/csv",
+        ".txt": "text/plain",
+        ".md": "text/markdown",
+    }
     content_type = content_types.get(target.suffix, "application/octet-stream")
     return FileResponse(open(target, "rb"), content_type=content_type)
 
@@ -50,6 +57,29 @@ def presentation(request):
         request,
         "traffic/presentation.html",
         build_presentation_context(),
+    )
+
+
+@require_GET
+def api_csv_data(request):
+    """Full CSV contents for the presentation table modal."""
+    rel = request.GET.get("path", "").strip()
+    if not rel or ".." in rel:
+        raise Http404("Invalid path")
+    target = _safe_output_path(rel)
+    if not target.is_file() or target.suffix.lower() != ".csv":
+        raise Http404("File not found")
+    with target.open(encoding="utf-8", newline="") as fh:
+        all_rows = list(csv.reader(fh))
+    headers = all_rows[0] if all_rows else []
+    body = all_rows[1:] if len(all_rows) > 1 else []
+    return JsonResponse(
+        {
+            "path": rel,
+            "headers": headers,
+            "rows": body,
+            "total_rows": len(body),
+        }
     )
 
 

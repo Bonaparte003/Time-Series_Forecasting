@@ -18,10 +18,12 @@
 
 ```bash
 cd Time-Series_Forecasting
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source myenv/bin/activate          # Windows: myenv\Scripts\activate
 pip install -r requirements.txt
 python manage.py migrate
 ```
+
+If you do not have `myenv` yet: `python -m venv myenv` then activate as above.
 
 Place raw files in `dataverse_files/`, `dataverse_files-2/`, … `dataverse_files-7/`, then:
 
@@ -31,7 +33,14 @@ python manage.py run_pipeline --verbose
 
 # Or step by step — see PROJECT_GUIDE.md
 
-**Documentation:** [PROJECT_GUIDE.md](PROJECT_GUIDE.md) (pipeline) · [docs/METHODS.md](docs/METHODS.md) (models & evaluation) · [docs/DIRECTORY_REFERENCE.md](docs/DIRECTORY_REFERENCE.md) (files & outputs)
+**Documentation:** [PROJECT_GUIDE.md](PROJECT_GUIDE.md) (pipeline) · [docs/METHODS.md](docs/METHODS.md) (models & evaluation) · [docs/DIRECTORY_REFERENCE.md](docs/DIRECTORY_REFERENCE.md) (files & outputs) · [docs/PROJECT_EXPLAINED.pdf](docs/PROJECT_EXPLAINED.pdf) (full narrative + line-by-line code)
+
+Regenerate the PDF (with `myenv` active):
+
+```bash
+pip install fpdf2
+python scripts/generate_project_pdf.py
+```
 ```
 
 **Requirements:** Python 3.10–3.12 · ~8 GB RAM for full ingest · `numpy>=1.26,<2` (PyTorch).

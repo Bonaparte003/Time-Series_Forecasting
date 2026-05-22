@@ -2,106 +2,110 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-  /* Sticky nav highlight */
-  const sections = $$("section[id]");
-  const navLinks = $$('.side nav a[href^="#"]');
-
-  function onScroll() {
-    let current = sections[0]?.id;
-    const y = window.scrollY + 80;
-    for (const sec of sections) {
-      if (sec.offsetTop <= y) current = sec.id;
-    }
-    navLinks.forEach((a) => {
-      a.classList.toggle("is-active", a.getAttribute("href") === `#${current}`);
-    });
-  }
-  window.addEventListener("scroll", onScroll, { passive: true });
-  onScroll();
-
-  /* Square tabs — metrics */
-  function wireTabs(groupName) {
-    const tabs = $$(`[data-tab-group="${groupName}"] .tab`);
-    const panels = $$(`[data-tab-panel="${groupName}"]`);
-    tabs.forEach((tab) => {
-      tab.addEventListener("click", () => {
-        const id = tab.dataset.tab;
-        tabs.forEach((t) => t.classList.toggle("is-active", t === tab));
-        panels.forEach((p) =>
-          p.classList.toggle("is-active", p.dataset.tabId === id)
-        );
-        if (groupName === "forecasts") filterForecastPlots(id);
-      });
-    });
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
-  function filterForecastPlots(squareId) {
-    $$(".plot-card").forEach((card) => {
-      card.classList.toggle(
-        "is-visible",
-        card.dataset.square === String(squareId)
-      );
-    });
-  }
-
-  wireTabs("metrics");
-  wireTabs("forecasts");
-  const activeForecast = $('.tab[data-tab-group="forecasts"].is-active');
-  if (activeForecast) filterForecastPlots(activeForecast.dataset.tab);
-
-  /* Experiment table — fetch from SQLite API */
-  const modelSel = $("#filter-model");
-  const phaseSel = $("#filter-phase");
-  const tbody = $("#exp-tbody");
-  const status = $("#exp-status");
-
-  async function loadExperiments() {
-    if (!tbody) return;
-    const params = new URLSearchParams();
-    if (modelSel?.value) params.set("model", modelSel.value);
-    if (phaseSel?.value) params.set("phase", phaseSel.value);
-    params.set("limit", "40");
-    status.textContent = "Loading…";
-    try {
-      const res = await fetch(`/api/experiments/?${params}`);
-      const data = await res.json();
-      tbody.innerHTML = data.rows
-        .map(
-          (r) => `
-        <tr>
-          <td>${r.id}</td>
-          <td>${r.phase}</td>
-          <td>${r.model}</td>
-          <td>${r.val_mae}</td>
-          <td>${r.val_mape}%</td>
-          <td>${r.train_s}s</td>
-        </tr>`
-        )
-        .join("");
-      status.textContent = `${data.rows.length} runs · filtered via Django ORM → SQLite`;
-    } catch (e) {
-      status.textContent = "Could not load experiments. Run run_experiments first.";
-      tbody.innerHTML = "";
-    }
-  }
-
-  modelSel?.addEventListener("change", loadExperiments);
-  phaseSel?.addEventListener("change", loadExperiments);
-  loadExperiments();
-
-  /* Lightbox for figures */
+  /* Image lightbox */
   const lb = $("#lightbox");
   const lbImg = $("#lightbox-img");
-  $$("figure img").forEach((img) => {
-    img.style.cursor = "zoom-in";
+  $$(".deck-fig img").forEach((img) => {
     img.addEventListener("click", (e) => {
       e.preventDefault();
       lbImg.src = img.src;
       lb.classList.add("is-open");
+      lb.setAttribute("aria-hidden", "false");
     });
   });
-  lb?.addEventListener("click", () => lb.classList.remove("is-open"));
+  lb?.addEventListener("click", () => {
+    lb.classList.remove("is-open");
+    lb.setAttribute("aria-hidden", "true");
+  });
+
+  /* CSV modal — full untruncated table */
+  const csvModal = $("#csv-modal");
+  const csvTitle = $("#csv-modal-title");
+  const csvMeta = $("#csv-modal-meta");
+  const csvTable = $("#csv-modal-table");
+  const csvClose = $("#csv-modal-close");
+  let csvLoading = false;
+
+  function closeCsvModal() {
+    csvModal?.classList.remove("is-open");
+    csvModal?.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+  }
+
+  function renderCsvTable(headers, rows) {
+    const headHtml = `<thead><tr>${headers
+      .map((h) => `<th>${escapeHtml(h)}</th>`)
+      .join("")}</tr></thead>`;
+    const bodyHtml = `<tbody>${rows
+      .map(
+        (row) =>
+          `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`
+      )
+      .join("")}</tbody>`;
+    csvTable.innerHTML = headHtml + bodyHtml;
+  }
+
+  async function openCsvModal(path) {
+    if (!csvModal || csvLoading) return;
+    csvLoading = true;
+    csvModal.classList.add("is-open", "is-loading");
+    csvModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+    csvTitle.textContent = path;
+    csvMeta.textContent = "Loading…";
+    csvTable.innerHTML = "";
+
+    try {
+      const res = await fetch(`/api/csv/?path=${encodeURIComponent(path)}`);
+      if (!res.ok) throw new Error("not found");
+      const data = await res.json();
+      renderCsvTable(data.headers, data.rows);
+      csvMeta.textContent = `${data.total_rows.toLocaleString()} rows · ${data.headers.length} columns`;
+    } catch {
+      csvMeta.textContent = "Could not load CSV.";
+      csvTable.innerHTML = "";
+    } finally {
+      csvModal.classList.remove("is-loading");
+      csvLoading = false;
+    }
+  }
+
+  $$(".csv-panel.is-clickable").forEach((panel) => {
+    const path = panel.dataset.csvPath;
+    if (!path) return;
+
+    panel.addEventListener("click", () => openCsvModal(path));
+    panel.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openCsvModal(path);
+      }
+    });
+  });
+
+  csvClose?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeCsvModal();
+  });
+  csvModal?.addEventListener("click", (e) => {
+    if (e.target === csvModal) closeCsvModal();
+  });
+  csvModal?.querySelector(".csv-modal-dialog")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
+
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") lb?.classList.remove("is-open");
+    if (e.key !== "Escape") return;
+    lb?.classList.remove("is-open");
+    lb?.setAttribute("aria-hidden", "true");
+    closeCsvModal();
   });
 })();
