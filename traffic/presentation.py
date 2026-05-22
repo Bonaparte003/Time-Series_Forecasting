@@ -9,6 +9,8 @@ from pathlib import Path
 from django.conf import settings
 from django.urls import reverse
 
+from traffic.services.loader import USECOLS
+
 
 def _read_json(path: Path) -> dict | list | None:
     if path.is_file():
@@ -314,6 +316,93 @@ def _build_introduction(*, squares: list) -> dict:
     }
 
 
+def _build_ingest_flow(*, ingest: dict) -> dict:
+    """Pipeline diagram data for Task 1 ingest + build_series."""
+    mem_before = ingest.get("memory_before_mb")
+    mem_after = ingest.get("memory_after_mb")
+    mem_line = ""
+    if mem_before is not None and mem_after is not None:
+        mem_line = (
+            f"Dtype sample RAM: {float(mem_before):.1f} MB → {float(mem_after):.1f} MB"
+        )
+
+    return {
+        "title": "Data ingestion pipeline",
+        "subtitle": (
+            "Stream ~5 GB of tab-separated TIM files without loading the full dataset into RAM."
+        ),
+        "steps": [
+            {
+                "num": 1,
+                "title": "Raw TIM files",
+                "detail": "dataverse_files*/sms-call-internet-mi-*.txt · one file per day",
+                "tag": "Source",
+            },
+            {
+                "num": 2,
+                "title": "Chunked read",
+                "detail": (
+                    f"{settings.CHUNK_SIZE:,} rows/chunk · cols "
+                    f"{USECOLS} → square, time, country, traffic (col {settings.INTERNET_COL})"
+                ),
+                "tag": "ingest_raw",
+            },
+            {
+                "num": 3,
+                "title": "Italy filter",
+                "detail": f"Keep country_code = {settings.COUNTRY_ITALY} (Milan grid)",
+                "tag": "Filter",
+            },
+            {
+                "num": 4,
+                "title": "Aggregate",
+                "detail": "groupby square_id + timestamp · sum internet_traffic",
+                "tag": "Per chunk",
+            },
+            {
+                "num": 5,
+                "title": "Daily Parquet",
+                "detail": "data/processed/daily/<date>.parquet · compact dtypes",
+                "tag": "Output",
+            },
+            {
+                "num": 6,
+                "title": "Regular series",
+                "detail": "build_series → 10-min grid · square_*.parquet + metadata.json",
+                "tag": "build_series",
+            },
+        ],
+        "stats": [
+            {
+                "label": "Files processed",
+                "value": f"{ingest.get('files_processed', '—')}",
+            },
+            {
+                "label": "Rows written",
+                "value": (
+                    f"{ingest.get('rows_written', 0):,}"
+                    if ingest.get("rows_written")
+                    else "—"
+                ),
+            },
+            {
+                "label": "Chunk size",
+                "value": f"{settings.CHUNK_SIZE:,}",
+            },
+            {
+                "label": "Memory (sample)",
+                "value": mem_line or "Run ingest_raw for report",
+            },
+        ],
+        "columns": [
+            {"name": "square_id", "dtype": "uint16"},
+            {"name": "time_ms", "dtype": "int64"},
+            {"name": "country_code", "dtype": "int16"},
+            {"name": "internet_traffic", "dtype": "float32"},
+        ],
+    }
+
+
 def _build_overview_journey(*, ingest: dict, squares: list) -> list[dict]:
     """Single scroll deck: every PNG and CSV under data/outputs."""
     models = ["ets", "lstm", "tcn"]
@@ -342,6 +431,7 @@ def _build_overview_journey(*, ingest: dict, squares: list) -> list[dict]:
             "title": "Raw TIM → daily Parquet",
             "cmd": "python manage.py ingest_raw · build_series",
             "kicker": kicker,
+            "ingest_flow": _build_ingest_flow(ingest=ingest),
             "figure_groups": [],
             "csvs": [],
             "texts": [],

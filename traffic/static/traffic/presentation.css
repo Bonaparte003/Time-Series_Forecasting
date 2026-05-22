@@ -29,8 +29,9 @@ body {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
   min-height: 100vh;
-  max-width: 1280px;
+  max-width: 1320px;
   margin: 0 auto;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
@@ -96,6 +97,13 @@ body {
 .main {
   padding: 0;
   min-width: 0;
+  overflow-x: hidden;
+}
+
+.intro-copy,
+.conclusion-copy,
+.deck-chapter {
+  min-width: 0;
 }
 
 .deck-index-link {
@@ -109,7 +117,7 @@ body {
 
 /* Introduction — full-width hero above pipeline chapters */
 .intro-section {
-  padding: 2.25rem 2.25rem 2.5rem;
+  padding: 2.25rem clamp(1.25rem, 3vw, 2.5rem) 2.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
@@ -140,10 +148,15 @@ body {
 
 .intro-body {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(240px, 0.9fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 280px);
   gap: 2rem;
   align-items: start;
   margin-top: 1.75rem;
+}
+
+.intro-copy,
+.intro-figure {
+  min-width: 0;
 }
 
 @media (max-width: 900px) {
@@ -194,6 +207,7 @@ body {
   margin: 0.25rem 0 0;
   font-size: 0.82rem;
   line-height: 1.4;
+  overflow-wrap: break-word;
 }
 
 .intro-source {
@@ -230,7 +244,7 @@ body {
 
 /* Conclusion — mirrors intro layout with results tables */
 .conclusion-section {
-  padding: 2.25rem 2.25rem 2.75rem;
+  padding: 2.25rem clamp(1.25rem, 3vw, 2.5rem) 2.75rem;
   border-top: 3px solid var(--accent);
   background: var(--surface);
 }
@@ -268,10 +282,15 @@ body {
 
 .conclusion-body {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.85fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 280px);
   gap: 2rem;
   align-items: start;
   margin-top: 1.5rem;
+}
+
+.conclusion-copy,
+.conclusion-figure {
+  min-width: 0;
 }
 
 @media (max-width: 900px) {
@@ -322,6 +341,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -360,10 +380,23 @@ body {
   letter-spacing: 0.04em;
 }
 
+.conclusion-metrics tbody tr {
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.conclusion-metrics tbody tr:hover td {
+  background: rgba(44, 74, 110, 0.09);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .conclusion-metrics tr.is-winner td {
   font-weight: 600;
   color: var(--accent);
   background: rgba(44, 74, 110, 0.06);
+}
+
+.conclusion-metrics tr.is-winner:hover td {
+  background: rgba(44, 74, 110, 0.14);
 }
 
 .conclusion-metrics tr:last-child td {
@@ -417,13 +450,212 @@ body {
   border-top: 1px solid var(--border);
 }
 
+/* Task 1 — ingestion pipeline diagram */
+.ingest-flow {
+  margin: 0 0 2rem;
+  padding: 1.35rem 1.5rem 1.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.ingest-flow-lead {
+  margin: 0 0 1.25rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+  max-width: 100%;
+  line-height: 1.45;
+}
+
+.ingest-pipeline-wrap {
+  overflow-x: auto;
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.35rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ingest-pipeline {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.4rem;
+  min-width: min(100%, 58rem);
+  padding: 0.15rem 0.1rem;
+}
+
+.ingest-step {
+  flex: 1 1 9.25rem;
+  min-width: 9.25rem;
+  max-width: 12.5rem;
+  padding: 0.7rem 0.65rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+
+.ingest-step-tag {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.ingest-step-num {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.ingest-step-title {
+  margin: 0.15rem 1.5rem 0.25rem 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.ingest-step-detail {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ingest-arrow {
+  flex: 0 0 1.1rem;
+  align-self: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 0;
+  opacity: 0.85;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .ingest-pipeline {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .ingest-step {
+    flex: 1 1 calc(50% - 1rem);
+    min-width: 8.5rem;
+    max-width: none;
+  }
+  .ingest-arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .ingest-step {
+    flex: 1 1 100%;
+  }
+}
+
+.ingest-stats {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+@media (max-width: 820px) {
+  .ingest-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ingest-stat {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  background: var(--surface);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.ingest-stat dt {
+  margin: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.ingest-stat dd {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+}
+
+.ingest-dtypes {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.ingest-dtypes-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.ingest-dtype-list {
+  margin: 0.45rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+}
+
+.ingest-dtype-list li {
+  font-size: 0.78rem;
+}
+
+.ingest-dtype-list code {
+  font-size: 0.75rem;
+  background: var(--surface);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.ingest-dtype-list span {
+  color: var(--muted);
+  margin-left: 0.2rem;
+}
+
 /* One continuous column — chapters stack with no gaps */
 .deck-flow {
   background: var(--surface);
 }
 
 .deck-chapter {
-  padding: 2rem 2.25rem 2.25rem;
+  padding: 2rem clamp(1.25rem, 3vw, 2.5rem) 2.5rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -477,6 +709,7 @@ body {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.5rem 1rem;
+  max-width: 100%;
 }
 
 .deck-cmd code {
@@ -485,6 +718,13 @@ body {
   background: var(--bg);
   padding: 0.2rem 0.45rem;
   border-radius: 4px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.deck-cmd > span {
+  overflow-wrap: break-word;
 }
 
 .deck-sub {
@@ -538,9 +778,10 @@ body {
 
 .deck-tables {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 0.85rem;
   margin-bottom: 0.5rem;
+  min-width: 0;
 }
 
 .csv-panel {
@@ -548,6 +789,7 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
   background: #fafaf8;
+  min-width: 0;
 }
 
 .csv-panel.is-clickable {
@@ -611,10 +853,25 @@ body {
 
 .csv-preview th,
 .csv-preview td {
-  padding: 0.3rem 0.45rem;
+  padding: 0.35rem 0.5rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.csv-preview tbody tr {
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.csv-preview tbody tr:hover td {
+  background: rgba(44, 74, 110, 0.1);
+  box-shadow: inset 3px 0 0 var(--accent);
+  white-space: normal;
+  overflow: visible;
+  max-width: none;
 }
 
 .csv-preview th {
@@ -623,6 +880,7 @@ body {
   background: var(--surface);
   position: sticky;
   top: 0;
+  z-index: 1;
 }
 
 .csv-meta {
@@ -784,8 +1042,13 @@ body.modal-open {
   z-index: 1;
 }
 
+.csv-modal-table tbody tr {
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
 .csv-modal-table tbody tr:hover td {
-  background: #f5f8fb;
+  background: rgba(44, 74, 110, 0.1);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .csv-modal.is-loading .csv-modal-body {

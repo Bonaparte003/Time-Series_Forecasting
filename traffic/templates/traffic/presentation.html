@@ -79,6 +79,44 @@
         </header>
         <p class="deck-cmd"><code>{{ step.cmd }}</code>{% if step.kicker %}<span>{{ step.kicker }}</span>{% endif %}</p>
 
+        {% if step.ingest_flow %}
+        <section class="ingest-flow" aria-label="Data ingestion pipeline">
+          <h4 class="deck-sub">{{ step.ingest_flow.title }}</h4>
+          <p class="ingest-flow-lead">{{ step.ingest_flow.subtitle }}</p>
+          <div class="ingest-pipeline-wrap">
+          <div class="ingest-pipeline">
+            {% for s in step.ingest_flow.steps %}
+            <div class="ingest-step">
+              <span class="ingest-step-tag">{{ s.tag }}</span>
+              <span class="ingest-step-num">{{ s.num }}</span>
+              <h5 class="ingest-step-title">{{ s.title }}</h5>
+              <p class="ingest-step-detail">{{ s.detail }}</p>
+            </div>
+            {% if not forloop.last %}
+            <div class="ingest-arrow" aria-hidden="true">→</div>
+            {% endif %}
+            {% endfor %}
+          </div>
+          </div>
+          <dl class="ingest-stats">
+            {% for stat in step.ingest_flow.stats %}
+            <div class="ingest-stat">
+              <dt>{{ stat.label }}</dt>
+              <dd>{{ stat.value }}</dd>
+            </div>
+            {% endfor %}
+          </dl>
+          <div class="ingest-dtypes">
+            <span class="ingest-dtypes-label">Compact dtypes after optimization</span>
+            <ul class="ingest-dtype-list">
+              {% for col in step.ingest_flow.columns %}
+              <li><code>{{ col.name }}</code> <span>{{ col.dtype }}</span></li>
+              {% endfor %}
+            </ul>
+          </div>
+        </section>
+        {% endif %}
+
         {% for group in step.figure_groups %}
         <h4 class="deck-sub">{{ group.label }}</h4>
         <div class="deck-gallery">
